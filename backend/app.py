@@ -1,8 +1,8 @@
 import os
 import subprocess
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import json  # For parsing tool input if necessary, and formatting tool output
-
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -132,15 +132,14 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
         }
 
     return {
-        "diplotypes": diplotypes,
-        "docker_command": " ".join(cmd)  # Included for debugging or logging if needed
+        "diplotypes": diplotypes
     }
 
 
 # --- Pydantic Models ---
 class SNPediaRequest(BaseModel):
     question: str
-    snps: List[str]
+    snps: Optional[List[str]] = None
 
 
 class ChatResponse(BaseModel):
@@ -214,21 +213,25 @@ async def search_snpedia(request: SNPediaRequest):
     1. `web_search`: To search SNPedia.com for information about SNPs. Use this to answer questions about specific SNPs if detailed information from SNPedia is required.
     2. `pharmcat_diplotypes`: To run the PharmCAT Docker pipeline on the user's VCF data (implicitly available to the tool) and return a mapping of gene to star-allele diplotype for requested genes. Use this tool when the user's question pertains to pharmacogenomics, drug metabolism (e.g. for genes like CYP2C19), or requires diplotype information for specific genes mentioned or implied in the question. Only specify genes relevant to the user's question in the tool input.
     """
-
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": f"Here are my SNPs: {', '.join(request.snps)}."}
-            ],
-        },
+    messages = []
+    if request.snps:
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"Here are my SNPs: {', '.join(request.snps)}."}
+                ],
+            }
+        )
+    messages.append(
         {
             "role": "user",
             "content": [
                 {"type": "text", "text": f"Here is my question: {request.question}"}
             ],
         },
-    ]
+    )
+
 
     anthropic_tools_definition = [
         {
@@ -253,12 +256,14 @@ async def search_snpedia(request: SNPediaRequest):
         }
     ]
 
-    MAX_TOOL_ITERATIONS = 3  # Prevent infinite loops if model keeps calling tools
+    MAX_TOOL_ITERATIONS = 5  # Prevent infinite loops if model keeps calling tools
     current_iteration = 0
 
     while current_iteration < MAX_TOOL_ITERATIONS:
         current_iteration += 1
-
+        print('Sending to anthropic...')
+        print(messages)
+        start_time = time.time()
         response_message = client.beta.messages.create(
             model=os.environ.get("ANTHROPIC_MODEL", "claude-3-7-sonnet-20250219"),
             # Use provided model, fallback if needed
@@ -270,6 +275,8 @@ async def search_snpedia(request: SNPediaRequest):
             betas=["web-search-2025-03-05"],  # Keep beta for web_search
             tool_choice={"type": "auto"}
         )
+        print(f"Took {time.time() - start_time} secs")
+        print(response_message)
 
         if response_message.stop_reason == "tool_use":
             tool_results_for_next_iteration = []
@@ -297,7 +304,8 @@ async def search_snpedia(request: SNPediaRequest):
                         tool_results_for_next_iteration.append({
                             "type": "tool_result",
                             "tool_use_id": tool_use_id,
-                            "content": [{"type": "json", "json": tool_output}],  # Send structured JSON back
+                            # Corrected line below:
+                            "content": [{"type": "text", "text": json.dumps(tool_output)}],
                             "is_error": "error" in tool_output  # Optional: flag if result is an error
                         })
                     # Add elif for other custom tools here if any
