@@ -1,23 +1,11 @@
 "use client";
 
-declare global {
-  interface Window {
-    igv: {
-      createBrowser: (
-        element: HTMLElement,
-        options: unknown
-      ) => Promise<unknown>;
-      removeBrowser: (browser: unknown) => void;
-      removeAllBrowsers: () => void;
-    };
-  }
-}
-
 import clsx from "clsx";
-// Adds `igv` to the global scope
-import "igv";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+
+const IGV = dynamic(() => import("./IGV"), { ssr: false });
 
 const LOADING_SUBTITLES = [
   "Reading base pairs...",
@@ -41,39 +29,18 @@ export default function Genome() {
           currentIndex === LOADING_SUBTITLES.length - 1
             ? currentIndex
             : currentIndex + 1;
+
+        if (nextIndex === LOADING_SUBTITLES.length - 1) {
+          setIsLoading(false);
+          clearInterval(interval);
+        }
+
         return LOADING_SUBTITLES[nextIndex];
       });
     }, 1000);
 
     return () => {
       clearInterval(interval);
-    };
-  }, []);
-
-  const igvDivRef = useRef<HTMLDivElement>(null);
-  const igvBrowserRef = useRef<unknown>(null);
-
-  useEffect(() => {
-    const options = {
-      genome: "hg38",
-    };
-
-    window.igv.createBrowser(igvDivRef.current!, options).then((browser) => {
-      if (igvBrowserRef.current) {
-        window.igv.removeBrowser(igvBrowserRef.current);
-      }
-
-      igvBrowserRef.current = browser;
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 1000 * LOADING_SUBTITLES.length);
-    });
-
-    return () => {
-      if (igvBrowserRef.current) {
-        window.igv.removeBrowser(igvBrowserRef.current);
-        igvBrowserRef.current = null;
-      }
     };
   }, []);
 
@@ -141,7 +108,7 @@ export default function Genome() {
             </h1>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-4 w-full mx-auto text-black text-center">
-            <div id="igv" ref={igvDivRef} />
+            <IGV />
             <p className="text-xs opacity-80 mt-1">
               Interactive Genome Visualization
             </p>
