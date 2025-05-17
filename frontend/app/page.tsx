@@ -1,8 +1,15 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useRef } from "react";
+
 export default function Home() {
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   function uploadGenome() {
-    alert("Not implemented yet");
+    // After file is selected, we redirect to the /genome page
+    fileInputRef.current?.click();
   }
 
   return (
@@ -31,6 +38,14 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={() => {
+                  router.push("/genome");
+                }}
+              />
               <button
                 onClick={uploadGenome}
                 className="flex gap-2 items-center bg-gradient-to-r from-cyan-600 to-teal-400 text-white font-bold py-4 px-6 rounded-2xl text-lg shadow-2xl hover:scale-105 active:scale-95 active:shadow-sm transition-transform transition-shadow duration-300 ease-out cursor-pointer"
