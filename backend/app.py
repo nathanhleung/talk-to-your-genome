@@ -294,24 +294,24 @@ async def search_snpedia(request: ChatRequest):  # Updated request model
                 "required": ["genes"]
             }
         },
-        # {
-        #     "name": "get_snp_base_pairs",
-        #     "description": "Retrieves REF/ALT alleles and genotype for a SNP from the user's VCF file given its chromosome and position. The VCF file is pre-configured on the server.",
-        #     "input_schema": {
-        #         "type": "object",
-        #         "properties": {
-        #             "chromosome": {
-        #                 "type": "integer",  # or string if you expect "chrX"
-        #                 "description": "The chromosome number (e.g., 1, 22, X). Do not include 'chr'."
-        #             },
-        #             "position": {
-        #                 "type": "integer",
-        #                 "description": "The base pair position of the SNP."
-        #             }
-        #         },
-        #         "required": ["chromosome", "position"]
-        #     }
-        # }
+        {
+            "name": "get_snp_base_pairs",
+            "description": "Retrieves REF/ALT alleles and genotype for a SNP from the user's VCF file given its chromosome and position. The VCF file is pre-configured on the server.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "chromosome": {
+                        "type": "integer",  # or string if you expect "chrX"
+                        "description": "The chromosome number (e.g., 1, 22, X). Do not include 'chr'."
+                    },
+                    "position": {
+                        "type": "integer",
+                        "description": "The base pair position of the SNP."
+                    }
+                },
+                "required": ["chromosome", "position"]
+            }
+        }
     ]
 
     MAX_TOOL_ITERATIONS = 5
