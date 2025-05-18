@@ -1,14 +1,16 @@
+import json
 import os
 import subprocess
-# from functools import lru_cache # Replaced by diskcache
-from typing import List, Dict, Any, Optional
-import json
 import time
-from dotenv import load_dotenv
+
+# from functools import lru_cache # Replaced by diskcache
+from typing import Any, Dict, List
 
 import diskcache  # Added for persistent caching
 import requests # Added for the new tool
 from starlette.responses import FileResponse
+import requests  # Added for the new tool
+from dotenv import load_dotenv
 
 cache = diskcache.Cache("pharmcat_cache3")  # Initialize cache
 
@@ -16,9 +18,11 @@ load_dotenv()
 
 import anthropic
 import uvicorn
-from fastapi import FastAPI, HTTPException, status as http_status
 import vcfpy
+from fastapi import FastAPI, HTTPException
+from fastapi import status as http_status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -49,21 +53,25 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
         return {
             "error": "VCF_FILE_PATH environment variable not set.",
             "diplotypes": {},
-            "docker_command": ""
-        }
-    if not os.path.exists(vcf_path):
-        return {
-            "error": f"VCF file not found at path: {vcf_path}",
-            "diplotypes": {},
-            "docker_command": ""
+            "docker_command": "",
         }
 
     workdir = os.path.dirname(vcf_path)
     base = os.path.basename(vcf_path)
     stem = os.path.splitext(base)[0]
 
-    docker_cmd_parts = ["docker", "run", "--rm", "-v", f"{workdir}:/data", "pgkb/pharmcat", "pharmcat_pipeline",
-                        "-reporterCallsOnlyTsv", f"/data/{base}"]
+    # Ensure sudo is only prefixed once if already present in the "docker" part of the command
+    docker_cmd_parts = [
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        f"{workdir}:/data",
+        "pgkb/pharmcat",
+        "pharmcat_pipeline",
+        "-reporterCallsOnlyTsv",
+        f"/data/{base}",
+    ]
     if os.geteuid() == 0:  # if running as root, sudo is not needed
         cmd = docker_cmd_parts
     else:
@@ -75,13 +83,13 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
         return {
             "error": f"PharmCAT Docker execution failed: {e.stderr}",
             "diplotypes": {},
-            "docker_command": " ".join(cmd)
+            "docker_command": " ".join(cmd),
         }
     except FileNotFoundError:
         return {
             "error": "Docker command (or sudo) not found. Please ensure Docker is installed and in your PATH, and sudo is available if needed.",
             "diplotypes": {},
-            "docker_command": " ".join(cmd)
+            "docker_command": " ".join(cmd),
         }
 
     tsv_path = os.path.join(workdir, f"{stem}.report.tsv")
@@ -89,7 +97,7 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
         return {
             "error": f"PharmCAT report TSV file not found: {tsv_path}. PharmCAT may not have generated the expected output. Docker logs (if any during run): {process_result.stderr if 'process_result' in locals() else 'N/A'}",
             "diplotypes": {},
-            "docker_command": " ".join(cmd)
+            "docker_command": " ".join(cmd),
         }
 
     diplotypes = {}
@@ -98,7 +106,10 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
             header_line = ""
             for _ in range(5):
                 line = f.readline()
-                if not line: break
+                if not line:
+                    break
+                if not line:
+                    break
                 if "Gene" in line and "Source Diplotype" in line:
                     header_line = line
                     break
@@ -107,7 +118,7 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
                 return {
                     "error": f"PharmCAT report TSV file ({tsv_path}) is missing the expected header ('Gene', 'Source Diplotype').",
                     "diplotypes": {},
-                    "docker_command": " ".join(cmd)
+                    "docker_command": " ".join(cmd),
                 }
 
             header = header_line.strip().split("\t")
@@ -118,7 +129,7 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
                 return {
                     "error": f"PharmCAT report TSV file ({tsv_path}) is missing 'Gene' or 'Source Diplotype' column in the identified header.",
                     "diplotypes": {},
-                    "docker_command": " ".join(cmd)
+                    "docker_command": " ".join(cmd),
                 }
 
             for line in f:
@@ -130,9 +141,9 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
         return {
             "error": f"Error parsing PharmCAT TSV report '{tsv_path}': {str(e)}",
             "diplotypes": {},
-            "docker_command": " ".join(cmd)
+            "docker_command": " ".join(cmd),
         }
-    return {"diplotypes": diplotypes, "docker_command": " ".join(cmd)}
+    return {"diplotes": diplotypes, "docker_command": " ".join(cmd)}
 
 
 # --- Tool function for getting SNP base pairs from VCF ---
@@ -161,7 +172,9 @@ def get_snp_base_pairs_tool(chromosome: int, position: int) -> Dict[str, Any]:
     found_snp_info = {}
     for record in reader:
         if record.CHROM == target_chrom and record.POS == target_pos:
-            call = record.calls[0]
+            call = record.calls[
+                0
+            ]  # Assuming single sample VCF or interested in the first sample
             gt = call.data.get("GT")
 
             alleles = [record.REF] + [alt.value for alt in record.ALT]
@@ -178,7 +191,8 @@ def get_snp_base_pairs_tool(chromosome: int, position: int) -> Dict[str, Any]:
                                 gt_bases_list.append(alleles[idx])
                             else:
                                 gt_bases_list.append(
-                                    f"Error:IndexOutOfRange({i_str})")
+                                    f"Error:IndexOutOfRange({i_str})"
+                                )  # Should not happen with valid VCF
                         except ValueError:
                             gt_bases_list.append(f"Error:NonNumericIndex({i_str})")
 
@@ -189,7 +203,9 @@ def get_snp_base_pairs_tool(chromosome: int, position: int) -> Dict[str, Any]:
                 "ref_allele": record.REF,
                 "alt_alleles": [alt.value for alt in record.ALT],
                 "genotype_str": gt if gt else "N/A",
-                "genotype_bases": "/".join(gt_bases_list) if gt_bases_list else "N/A (No GT)"
+                "genotype_bases": "/".join(gt_bases_list)
+                if gt_bases_list
+                else "N/A (No GT)",
             }
             reader.close()
             return {"snp_data": found_snp_info}
@@ -197,8 +213,9 @@ def get_snp_base_pairs_tool(chromosome: int, position: int) -> Dict[str, Any]:
     reader.close()
     return {"message": f"SNP not found at {target_chrom}:{target_pos}"}
 
+
 # --- New tool function for getting SNP info from ClinicalTables API ---
-@cache.memoize() # Cache results for this tool as well
+@cache.memoize()  # Cache results for this tool as well
 def get_snp_info_from_clinicaltables_tool(rsid: str) -> Dict[str, Any]:
     """
     Queries the NIH Clinical Tables API for a given rsID to get SNP information
@@ -206,56 +223,83 @@ def get_snp_info_from_clinicaltables_tool(rsid: str) -> Dict[str, Any]:
     Example API response for rs4988235: [1,["rs4988235"],null,[["rs4988235","2","135851075","G/A, G/C","MCM6"]]]
     """
     if not rsid or not isinstance(rsid, str) or not rsid.startswith("rs"):
-        return {"error": "Invalid rsID format. It should be a string starting with 'rs' (e.g., 'rs12345')."}
+        return {
+            "error": "Invalid rsID format. It should be a string starting with 'rs' (e.g., 'rs12345')."
+        }
 
     api_url = f"https://clinicaltables.nlm.nih.gov/api/snps/v3/search?terms={rsid}"
     try:
-        response = requests.get(api_url, timeout=10) # Added timeout
+        response = requests.get(api_url, timeout=10)  # Added timeout
         response.raise_for_status()  # Raise an exception for HTTP errors (4xx or 5xx)
         data = response.json()
 
         # Expected response structure: [count, [rsid_found], null, [[rsid, chrom, pos, alleles, gene]]]
         if not data or not isinstance(data, list) or len(data) < 4:
-            return {"error": f"Unexpected API response structure for {rsid} from ClinicalTables."}
+            return {
+                "error": f"Unexpected API response structure for {rsid} from ClinicalTables."
+            }
 
         count = data[0]
-        if count == 0 or not data[3]: # No results or empty data field
+        if count == 0 or not data[3]:  # No results or empty data field
             return {"message": f"SNP {rsid} not found in ClinicalTables database."}
 
         # Assuming the first result is the one we want if multiple are somehow returned for a specific rsid
         snp_details_list = data[3]
-        if not snp_details_list or not isinstance(snp_details_list, list) or not snp_details_list[0]:
-            return {"error": f"SNP data field is empty or malformed for {rsid} in ClinicalTables response."}
+        if (
+            not snp_details_list
+            or not isinstance(snp_details_list, list)
+            or not snp_details_list[0]
+        ):
+            return {
+                "error": f"SNP data field is empty or malformed for {rsid} in ClinicalTables response."
+            }
 
         # Iterate through results to find the exact rsid match, as the API might return related terms
         found_snp = None
         for snp_info_list in snp_details_list:
-            if isinstance(snp_info_list, list) and len(snp_info_list) >= 5 and snp_info_list[0].lower() == rsid.lower():
+            if (
+                isinstance(snp_info_list, list)
+                and len(snp_info_list) >= 5
+                and snp_info_list[0].lower() == rsid.lower()
+            ):
                 found_snp = {
                     "rsid": snp_info_list[0],
                     "chromosome": snp_info_list[1],
-                    "position": int(snp_info_list[2]), # position is typically integer
+                    "position": int(snp_info_list[2]),  # position is typically integer
                     "observed_alleles": snp_info_list[3],
-                    "gene": snp_info_list[4] if len(snp_info_list) > 4 else "N/A" # Gene might not always be present
+                    "gene": snp_info_list[4]
+                    if len(snp_info_list) > 4
+                    else "N/A",  # Gene might not always be present
                 }
                 break
 
         if found_snp:
             return {"snp_info": found_snp}
         else:
-            return {"message": f"SNP {rsid} not found or data format incorrect in ClinicalTables response details."}
-
+            return {
+                "message": f"SNP {rsid} not found or data format incorrect in ClinicalTables response details."
+            }
 
     except requests.exceptions.HTTPError as http_err:
-        return {"error": f"HTTP error occurred while querying ClinicalTables for {rsid}: {http_err}"}
+        return {
+            "error": f"HTTP error occurred while querying ClinicalTables for {rsid}: {http_err}"
+        }
     except requests.exceptions.ConnectionError as conn_err:
-        return {"error": f"Connection error occurred while querying ClinicalTables for {rsid}: {conn_err}"}
+        return {
+            "error": f"Connection error occurred while querying ClinicalTables for {rsid}: {conn_err}"
+        }
     except requests.exceptions.Timeout as timeout_err:
-        return {"error": f"Timeout occurred while querying ClinicalTables for {rsid}: {timeout_err}"}
+        return {
+            "error": f"Timeout occurred while querying ClinicalTables for {rsid}: {timeout_err}"
+        }
     except requests.exceptions.RequestException as req_err:
-        return {"error": f"An error occurred while querying ClinicalTables for {rsid}: {req_err}"}
-    except ValueError as json_err: # Includes json.JSONDecodeError
-        return {"error": f"Failed to decode JSON response from ClinicalTables for {rsid}: {json_err}"}
+        return {
+            "error": f"An error occurred while querying ClinicalTables for {rsid}: {req_err}"
+        }
+    except ValueError as json_err:  # Includes json.JSONDecodeError
+        return {
+            "error": f"Failed to decode JSON response from ClinicalTables for {rsid}: {json_err}"
+        }
 
 
 # --- Pydantic Models ---
@@ -275,9 +319,9 @@ def extract_text_with_citations_from_sdk_blocks(api_response_content_blocks: Lis
     # ... (rest of the function remains unchanged)
     for block_sdk_obj in api_response_content_blocks:
         block_dict = {}
-        if hasattr(block_sdk_obj, 'type'):
+        if hasattr(block_sdk_obj, "type"):
             if block_sdk_obj.type == "text":
-                text_content = getattr(block_sdk_obj, 'text', "").strip()
+                text_content = getattr(block_sdk_obj, "text", "").strip()
                 if text_content:
                     user_texts.append(text_content)
             try:
@@ -297,8 +341,11 @@ def extract_text_with_citations_from_sdk_blocks(api_response_content_blocks: Lis
                 try:
                     cite_dict = dict(cite_obj)
                 except Exception:
-                    if hasattr(cite_obj, 'url') and hasattr(cite_obj, 'title'):
-                        cite_dict = {'url': getattr(cite_obj, 'url'), 'title': getattr(cite_obj, 'title')}
+                    if hasattr(cite_obj, "url") and hasattr(cite_obj, "title"):
+                        cite_dict = {
+                            "url": getattr(cite_obj, "url"),
+                            "title": getattr(cite_obj, "title"),
+                        }
                     else:
                         continue
                 url = cite_dict.get("url")
@@ -308,11 +355,14 @@ def extract_text_with_citations_from_sdk_blocks(api_response_content_blocks: Lis
     full_text = "\n\n".join(user_texts)
     return full_text, list(set(citations_list))
 
+
 # --- FastAPI Endpoints ---
-@app.post("/chat", response_model=ChatResponse)
-async def search_snpedia(request: ChatRequest):
-    if request.token != 'texakloma':
-        raise HTTPException(status_code=http_status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+@app.post("/chat")
+async def search_snpedia(request: ChatRequest):  # Updated request model
+    if request.token != "texakloma":  # Consider making token configurable via env var
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
 
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
@@ -336,7 +386,7 @@ async def search_snpedia(request: ChatRequest):
     anthropic_tools_definition = [
         {
             "name": "web_search",
-            "type": "web_search_20250305", # Use the beta type
+            "type": "web_search_20250305",  # Use the beta type
             "allowed_domains": ["snpedia.com"],
         },
         {
@@ -348,31 +398,31 @@ async def search_snpedia(request: ChatRequest):
                     "genes": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of genes to process (e.g., GBA, LRRK2, CYP2C19). Only include genes relevant to the user's question."
+                        "description": "List of genes to process (e.g., GBA, LRRK2, CYP2C19). Only include genes relevant to the user's question.",
                     }
                 },
-                "required": ["genes"]
-            }
+                "required": ["genes"],
+            },
         },
         {
-            "name": "get_snp_base_pairs", # This tool was previously commented out, re-enabling it.
+            "name": "get_snp_base_pairs",  # This tool was previously commented out, re-enabling it.
             "description": "Retrieves REF/ALT alleles and genotype for a SNP from the user's VCF file given its chromosome and position. The VCF file is pre-configured on the server.",
             "input_schema": {
                 "type": "object",
                 "properties": {
                     "chromosome": {
                         "type": "integer",
-                        "description": "The chromosome number (e.g., 1, 22). Do not include 'chr'."
+                        "description": "The chromosome number (e.g., 1, 22). Do not include 'chr'.",
                     },
                     "position": {
                         "type": "integer",
-                        "description": "The base pair position of the SNP."
-                    }
+                        "description": "The base pair position of the SNP.",
+                    },
                 },
-                "required": ["chromosome", "position"]
-            }
+                "required": ["chromosome", "position"],
+            },
         },
-        { # Definition for the new tool
+        {  # Definition for the new tool
             "name": "get_snp_info_from_clinicaltables",
             "description": "Retrieves SNP information (chromosome, position, observed alleles, gene) for a given rsID from the NIH Clinical Tables API.",
             "input_schema": {
@@ -380,186 +430,279 @@ async def search_snpedia(request: ChatRequest):
                 "properties": {
                     "rsid": {
                         "type": "string",
-                        "description": "The rsID of the SNP to look up (e.g., 'rs4988235')."
+                        "description": "The rsID of the SNP to look up (e.g., 'rs4988235').",
                     }
                 },
-                "required": ["rsid"]
-            }
-        }
+                "required": ["rsid"],
+            },
+        },
     ]
 
     MAX_TOOL_ITERATIONS = 5
     current_iteration = 0
 
-    while current_iteration < MAX_TOOL_ITERATIONS:
-        current_iteration += 1
-        print(f"Iteration {current_iteration}. Sending to Anthropic...")
-        start_time = time.time()
-        response_message = client.beta.messages.create(
-            model=os.environ.get("ANTHROPIC_MODEL", "claude-3-7-sonnet-20250219"), # Using Haiku for speed, Opus for max power
-            max_tokens=2048,
-            temperature=0.7,
-            system=SYSTEM_PROMPT,
-            messages=messages,
-            tools=anthropic_tools_definition,
-            betas=["web-search-2025-03-05"], # Ensure beta flag for web search is active
-            tool_choice={"type": "auto"}
-        )
-        print(f"Anthropic call took {time.time() - start_time:.2f} secs. Stop reason: {response_message.stop_reason}")
+    async def process_stream():
+        nonlocal current_iteration, messages
 
-        if response_message.stop_reason == "tool_use":
-            tool_results_for_next_iteration = []
-            tool_was_called_by_llm = False
+        while current_iteration < MAX_TOOL_ITERATIONS:
+            current_iteration += 1
+            print(f"Iteration {current_iteration}. Sending to Anthropic...")
 
-            for content_block in response_message.content:
-                if content_block.type == "tool_use":
-                    tool_was_called_by_llm = True
-                    tool_name = content_block.name
-                    tool_input = content_block.input
-                    tool_use_id = content_block.id
-                    print(f"LLM requests to use tool: {tool_name} with input: {tool_input}")
+            start_time = time.time()
+            collected_content = []
+            response_message = None
 
-                    tool_output_content = None
-                    tool_output = {} # Initialize tool_output
-
-                    if tool_name == "pharmcat_diplotypes":
-                        genes_to_process = tool_input.get("genes")
-                        if not isinstance(genes_to_process, list) or not all(
-                                isinstance(g, str) for g in genes_to_process):
-                            print(f"Error: Invalid 'genes' input for {tool_name}. Expected list of strings. Got: {genes_to_process}")
-                            tool_output = {"error": "Invalid input for 'genes'. Expected a list of gene symbols (strings)."}
+            with client.beta.messages.stream(
+                model=os.environ.get("ANTHROPIC_MODEL", "claude-3-7-sonnet-20250219"),
+                max_tokens=2048,
+                temperature=0.7,
+                system=SYSTEM_PROMPT,
+                messages=messages,
+                tools=anthropic_tools_definition,
+                betas=["web-search-2025-03-05"],
+                tool_choice={"type": "auto"},
+            ) as stream:
+                for event in stream:
+                    # Deep conversion of all nested objects to dictionaries
+                    def convert_to_dict(obj):
+                        if hasattr(obj, "__dict__"):
+                            return {
+                                k: convert_to_dict(v)
+                                for k, v in obj.__dict__.items()
+                                if not k.startswith("_")
+                            }
+                        elif isinstance(obj, dict):
+                            return {k: convert_to_dict(v) for k, v in obj.items()}
+                        elif isinstance(obj, list):
+                            return [convert_to_dict(i) for i in obj]
                         else:
-                            tool_output = pharmcat_diplotypes(genes=tuple(sorted(genes_to_process)))
-                        print(f"PharmCAT output: {tool_output}")
-                        tool_output_content = json.dumps(tool_output)
+                            return obj
 
-                    elif tool_name == "get_snp_base_pairs":
-                        chromosome = tool_input.get("chromosome")
-                        position = tool_input.get("position")
-                        # VCF typically expects integer for chromosome, but API might get string from LLM.
-                        # The tool function `get_snp_base_pairs_tool` handles prepending "chr"
-                        try:
-                            chromosome_int = int(chromosome) if isinstance(chromosome, (str, int)) else None
-                            position_int = int(position) if isinstance(position, (str, int)) else None
-                        except ValueError:
-                             chromosome_int = None # Will trigger error below
-                             position_int = None
+                    try:
+                        event_dict = dict(event)
 
-                        if not isinstance(chromosome_int, int) or not isinstance(position_int, int):
-                            print(f"Error: Invalid input for {tool_name}. Expected integer chromosome and position. Got: chr={chromosome}, pos={position}")
-                            tool_output = {"error": "Invalid input. 'chromosome' and 'position' must be integers."}
-                        else:
-                            tool_output = get_snp_base_pairs_tool(chromosome=chromosome_int, position=position_int)
-                        print(f"Get SNP Base Pairs output: {tool_output}")
-                        tool_output_content = json.dumps(tool_output)
+                        for key in event_dict:
+                            if hasattr(event_dict[key], "__dict__") or isinstance(
+                                event_dict[key], (list, dict)
+                            ):
+                                event_dict[key] = convert_to_dict(event_dict[key])
 
-                    elif tool_name == "get_snp_info_from_clinicaltables":
-                        rsid_input = tool_input.get("rsid")
-                        if not isinstance(rsid_input, str) or not rsid_input.startswith("rs"):
-                            print(f"Error: Invalid 'rsid' input for {tool_name}. Expected string like 'rs123'. Got: {rsid_input}")
-                            tool_output = {"error": "Invalid input for 'rsid'. Expected a string starting with 'rs'."}
-                        else:
-                            tool_output = get_snp_info_from_clinicaltables_tool(rsid=rsid_input)
-                        print(f"ClinicalTables SNP info output: {tool_output}")
-                        tool_output_content = json.dumps(tool_output)
+                        print(f"Event: {event_dict}")
 
-                    else: # web_search or unhandled tool
-                        print(f"Warning: LLM requested tool '{tool_name}' which might be auto-handled or is unhandled by custom logic.")
-                        # For web_search, Anthropic handles it.
-                        # If it's another unhandled tool (not web_search), create an error result.
-                        if tool_name != "web_search": # web_search doesn't need a tool_result from our side.
-                            tool_results_for_next_iteration.append({
+                        yield json.dumps(event_dict) + "\n"
+
+                    except (TypeError, ValueError) as e:
+                        print(
+                            f"Error converting event to dict: {e}, attempting deep conversion"
+                        )
+                        event_dict = convert_to_dict(event)
+                        print(f"Deep converted event: {event_dict}")
+                        yield json.dumps(event_dict) + "\n"
+
+                    # Collect response for further processing
+                    if "message" in event_dict:
+                        response_message = event_dict["message"]
+                    if "content_block" in event_dict:
+                        collected_content.append(event_dict["content_block"])
+
+            if not response_message:
+                response_message = {
+                    "content": collected_content,
+                    "stop_reason": "end_turn",
+                }
+
+            # Handle tool use cases
+            if response_message.get("stop_reason") == "tool_use":
+                tool_results_for_next_iteration = []
+                tool_was_called_by_llm = False
+
+                for content_block in response_message.get("content", []):
+                    if content_block.get("type") == "tool_use":
+                        tool_was_called_by_llm = True
+                        tool_name = content_block.get("name")
+                        tool_input = content_block.get("input")
+                        tool_use_id = content_block.get("id")
+                        print(
+                            f"LLM requests to use tool: {tool_name} with input: {tool_input}"
+                        )
+
+                        tool_output_content = (
+                            None  # Will hold the JSON string for the tool result
+                        )
+
+                        if tool_name == "pharmcat_diplotypes":
+                            genes_to_process = tool_input.get("genes")
+                            if not isinstance(genes_to_process, list) or not all(
+                                isinstance(g, str) for g in genes_to_process
+                            ):
+                                print(
+                                    f"Error: Invalid 'genes' input for {tool_name}. Expected list of strings. Got: {genes_to_process}"
+                                )
+                                tool_output = {
+                                    "error": "Invalid input for 'genes'. Expected a list of gene symbols (strings)."
+                                }
+                            else:
+                                # Convert to tuple for caching if genes list can be large, though diskcache handles lists
+                                tool_output = pharmcat_diplotypes(
+                                    genes=tuple(sorted(genes_to_process))
+                                )
+                            print(f"{tool_output=}")
+                            tool_output_content = json.dumps(tool_output)
+
+                        elif tool_name == "get_snp_base_pairs":
+                            chromosome = tool_input.get("chromosome")
+                            position = tool_input.get("position")
+                            if not isinstance(chromosome, int) or not isinstance(
+                                position, int
+                            ):
+                                print(
+                                    f"Error: Invalid input for {tool_name}. Expected integer chromosome and position. Got: chr={chromosome}, pos={position}"
+                                )
+                                tool_output = {
+                                    "error": "Invalid input. 'chromosome' and 'position' must be integers."
+                                }
+                            else:
+                                tool_output = get_snp_base_pairs_tool(
+                                    chromosome=chromosome, position=position
+                                )
+                            print(f"{tool_output=}")
+                            tool_output_content = json.dumps(tool_output)
+
+                        elif tool_name == "get_snp_info_from_clinicaltables":
+                            rsid_input = tool_input.get("rsid")
+                            if not isinstance(
+                                rsid_input, str
+                            ) or not rsid_input.startswith("rs"):
+                                print(
+                                    f"Error: Invalid 'rsid' input for {tool_name}. Expected string like 'rs123'. Got: {rsid_input}"
+                                )
+                                tool_output = {
+                                    "error": "Invalid input for 'rsid'. Expected a string starting with 'rs'."
+                                }
+                            else:
+                                tool_output = get_snp_info_from_clinicaltables_tool(
+                                    rsid=rsid_input
+                                )
+                            print(f"ClinicalTables SNP info output: {tool_output}")
+                            tool_output_content = json.dumps(tool_output)
+
+                        else:  # web_search or unhandled tool
+                            print(
+                                f"Warning: LLM requested tool '{tool_name}' which might be auto-handled or is unhandled by custom logic."
+                            )
+                            tool_results_for_next_iteration.append(
+                                {
+                                    "type": "tool_result",
+                                    "tool_use_id": tool_use_id,
+                                    "content": [
+                                        {
+                                            "type": "text",
+                                            "text": f"Tool '{tool_name}' is not one of the custom-handled tools by this application or is an auto-handled tool like web_search.",
+                                        }
+                                    ],
+                                    "is_error": True,
+                                }
+                            )
+                            continue
+
+                        # Common way to append tool result
+                        tool_results_for_next_iteration.append(
+                            {
                                 "type": "tool_result",
                                 "tool_use_id": tool_use_id,
-                                "content": [{"type": "text",
-                                             "text": f"Tool '{tool_name}' is not one of the custom-handled tools by this application."}],
-                                "is_error": True
-                            })
-                        continue # Skip adding to tool_results_for_next_iteration if web_search or handled here
+                                "content": [
+                                    {"type": "text", "text": tool_output_content}
+                                ],
+                                "is_error": "error" in tool_output
+                                if isinstance(tool_output, dict)
+                                else False,
+                            }
+                        )
 
-                    # Common way to append tool result, if tool_output_content was set
-                    if tool_output_content is not None:
-                        tool_results_for_next_iteration.append({
-                            "type": "tool_result",
-                            "tool_use_id": tool_use_id,
-                            "content": [{"type": "text", "text": tool_output_content}],
-                            "is_error": "error" in tool_output if isinstance(tool_output, dict) else False
-                        })
-                    elif tool_name == "web_search": # If it was web_search, we don't add a tool result here, Anthropic handles it.
-                        pass # Do nothing, already continued.
-                    else: # A custom tool was called, but tool_output_content wasn't generated (should not happen if logic is correct)
-                         tool_results_for_next_iteration.append({
-                            "type": "tool_result",
-                            "tool_use_id": tool_use_id,
-                            "content": [{"type": "text", "text": f"An unexpected error occurred while processing tool '{tool_name}'. No output was generated."}],
-                            "is_error": True
-                        })
+                if not tool_was_called_by_llm:
+                    # No tools were called - check if text is available
+                    if any(
+                        b.get("type") == "text"
+                        for b in response_message.get("content", [])
+                    ):
+                        print(
+                            "Text found instead of tool use. Returning as final answer."
+                        )
+                        return
 
-
-            if not tool_was_called_by_llm:
-                print("Warning: stop_reason is 'tool_use' but no tool_use content blocks found. Checking for text...")
-                if any(b.type == "text" for b in response_message.content if hasattr(b, 'type')):
-                    print("Text found alongside 'tool_use' stop reason without actual tool call block. Returning text as final answer.")
-                    return ChatResponse(messages=[block.model_dump() for block in response_message.content])
-                messages.append({"role": "assistant", "content": response_message.content})
-                messages.append({
-                    "role": "user",
-                    "content": [{"type": "text",
-                                 "text": "No valid tool was called and no text was returned. Please provide a textual answer or call a valid tool."}]
-                })
-            elif tool_results_for_next_iteration: # If we have results from our custom tools
-                messages.append({"role": "assistant", "content": response_message.content}) # The LLM's request to use tool(s)
-                messages.append({"role": "user", "content": tool_results_for_next_iteration}) # Our tool's output(s)
-            elif any(block.type == "tool_use" and block.name == "web_search" for block in response_message.content):
-                # This case handles if ONLY web_search was called.
-                # Anthropic expects the assistant's message asking to use web_search,
-                # and then it will internally handle the web search and come back with the results in the next turn.
-                # So, we append the assistant's message and let the loop continue.
-                messages.append({"role": "assistant", "content": response_message.content})
-                # No "user" message with tool_results needed here, as web_search is special.
+                    # If no text and no tool use, add a message to try again
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": response_message.get("content", []),
+                        }
+                    )
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "No valid tool was called and no text was returned. Please provide a textual answer or call a valid tool.",
+                                }
+                            ],
+                        }
+                    )
+                elif tool_results_for_next_iteration:
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": response_message.get("content", []),
+                        }
+                    )
+                    messages.append(
+                        {"role": "user", "content": tool_results_for_next_iteration}
+                    )
+                    # Yield a message about tool use
+                    yield (
+                        json.dumps(
+                            {
+                                "type": "info",
+                                "text": f"Using tools: {', '.join(t.get('type') for t in tool_results_for_next_iteration)}",
+                            }
+                        )
+                        + "\n"
+                    )
+                else:
+                    # Tool use indicated but nothing processed
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": response_message.get("content", []),
+                        }
+                    )
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "An error occurred while trying to use a tool. Please try to answer directly or use a different tool.",
+                                }
+                            ],
+                        }
+                    )
             else:
-                print(f"Error: Tool use indicated but no actionable results prepared. Last assistant message: {response_message.content}")
-                messages.append({"role": "assistant", "content": response_message.content})
-                messages.append({
-                    "role": "user",
-                    "content": [{"type": "text",
-                                 "text": "An error occurred while trying to use a tool or the requested tool was not processed. Please try to answer directly or use a different tool."}]
-                })
+                # This is a final answer (not tool use)
+                return
 
-        elif response_message.stop_reason == "end_turn" or any(
-                b.type == "text" for b in response_message.content if hasattr(b, 'type')):
-            return ChatResponse(messages=[block.model_dump() for block in response_message.content])
+        # Max iterations reached
+        yield (
+            json.dumps(
+                {
+                    "type": "error",
+                    "text": f"Max tool iterations ({MAX_TOOL_ITERATIONS}) reached. The conversation involved too many tool steps.",
+                }
+            )
+            + "\n"
+        )
 
-        else:
-            print(f"LLM stopped for reason: {response_message.stop_reason}. Content: {response_message.content}")
-            error_message_content = [
-                {"type": "text", "text": f"LLM processing stopped prematurely: {response_message.stop_reason}."}
-            ]
-            if response_message.content and isinstance(response_message.content, list):
-                processed_content = [block.model_dump() for block in response_message.content]
-                final_content = error_message_content + processed_content
-            else:
-                final_content = error_message_content
-            return ChatResponse(messages=final_content)
-
-    print(f"Max tool iterations ({MAX_TOOL_ITERATIONS}) reached.")
-    if 'response_message' in locals() and response_message and response_message.content:
-        iteration_limit_message = {"type": "text",
-                                   "text": f"Max tool iterations ({MAX_TOOL_ITERATIONS}) reached. The conversation involved too many tool steps."}
-        # Ensure all parts of response_message.content are serializable
-        serializable_content = []
-        for block in response_message.content:
-            if hasattr(block, 'model_dump'):
-                serializable_content.append(block.model_dump())
-            else: # Fallback for potentially non-pydantic objects in content list
-                serializable_content.append(dict(block))
-
-
-        final_messages = serializable_content + [iteration_limit_message]
-        return ChatResponse(messages=final_messages)
-
-    return ChatResponse(messages=[{"type": "text",
-                                   "text": f"The conversation involved too many steps with internal tools ({MAX_TOOL_ITERATIONS} iterations) and could not be completed."}])
+    return StreamingResponse(process_stream(), media_type="application/x-ndjson")
 
 
 @app.get("/health")
@@ -582,7 +725,9 @@ if __name__ == "__main__":
         print("Error: ANTHROPIC_API_KEY environment variable is not set.")
         exit(1)
     if not vcf_file:
-        print("Warning: VCF_FILE_PATH environment variable is not set. Tools 'pharmcat_diplotypes' and 'get_snp_base_pairs' will fail if used.")
+        print(
+            "Warning: VCF_FILE_PATH environment variable is not set. Tools 'pharmcat_diplotypes' and 'get_snp_base_pairs' will fail if used."
+        )
         # Allowing to run if other tools like clinicaltables or web_search are to be tested without VCF
     elif not os.path.exists(vcf_file):
         print(f"Error: VCF file specified by VCF_FILE_PATH does not exist: {vcf_file}")
@@ -591,6 +736,10 @@ if __name__ == "__main__":
         print(f"Error: VCF_FILE_PATH specified is not a file: {vcf_file}")
         exit(1)
 
-    print(f"PharmCAT and ClinicalTables API cache directory: {os.path.abspath(cache.directory)}")
-    print("To test the new tool, ask the assistant for information about a specific rsID, e.g., 'Tell me about rs4988235'.")
+    print(
+        f"PharmCAT and ClinicalTables API cache directory: {os.path.abspath(cache.directory)}"
+    )
+    print(
+        "To test the new tool, ask the assistant for information about a specific rsID, e.g., 'Tell me about rs4988235'."
+    )
     uvicorn.run(app, host="0.0.0.0", port=8000)
