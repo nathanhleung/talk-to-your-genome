@@ -148,6 +148,15 @@ export default function Home() {
             >
               PharmCAT
             </a>
+            . View code on{" "}
+            <a
+              href="https://github.com/nathanhleung/talk-to-your-genome/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-cyan-400 hover:underline"
+            >
+              GitHub
+            </a>
             .
           </p>
         </div>
