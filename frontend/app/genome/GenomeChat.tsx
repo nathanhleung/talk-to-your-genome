@@ -108,11 +108,13 @@ export default function GenomeChat() {
               <small
                 className="text-cyan-400 opacity-80 cursor-pointer hover:opacity-50"
                 onClick={() => {
-                  setLocus(message.locus);
-                  window.scrollTo({
-                    top: document.body.scrollHeight,
-                    behavior: "smooth",
-                  });
+                  if (message.locus) {
+                    setLocus(message.locus);
+                    window.scrollTo({
+                      top: document.body.scrollHeight,
+                      behavior: "smooth",
+                    });
+                  }
                 }}
               >
                 View genome at {message.locus}
