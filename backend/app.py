@@ -360,7 +360,7 @@ async def search_snpedia(request: ChatRequest):  # Updated request model
                         else:
                             # Convert to tuple for caching if genes list can be large, though diskcache handles lists
                             tool_output = pharmcat_diplotypes(genes=tuple(sorted(genes_to_process)))
-                            print(f"{tool_output=}")
+                        print(f"{tool_output=}")
                         tool_output_content = json.dumps(tool_output)
 
                     elif tool_name == "get_snp_base_pairs":
@@ -372,6 +372,7 @@ async def search_snpedia(request: ChatRequest):  # Updated request model
                             tool_output = {"error": "Invalid input. 'chromosome' and 'position' must be integers."}
                         else:
                             tool_output = get_snp_base_pairs_tool(chromosome=chromosome, position=position)
+                        print(f"{tool_output=}")
                         tool_output_content = json.dumps(tool_output)
 
                     else:  # web_search or unhandled tool
