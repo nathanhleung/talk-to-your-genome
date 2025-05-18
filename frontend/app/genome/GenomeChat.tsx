@@ -3,39 +3,16 @@ import { useSetAtom } from "jotai";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
 
-const PLACEHOLDER_MESSAGES: {
-  id: number;
-  message: string;
-  type: string;
-  locus?: string;
-}[] = [
-  {
-    id: 1,
-    message: "What medications should I avoid with my genetics?",
-    type: "user",
-  },
-  {
-    id: 2,
-    message:
-      "Based on your CYP2D6 variants, consider alternatives to codeine and tramadol.",
-    type: "genome",
-  },
-  {
-    id: 3,
-    message: "What about my cardiovascular risk?",
-    type: "user",
-  },
-  {
-    id: 4,
-    message:
-      "Your genetic profile suggests a higher risk for certain cardiovascular conditions. Regular check-ups are recommended.",
-    type: "genome",
-  },
-];
-
 export default function GenomeChat() {
   const setLocus = useSetAtom(locusAtom);
-  const [messages, setMessages] = useState(PLACEHOLDER_MESSAGES);
+  const [messages, setMessages] = useState<
+    {
+      id: string;
+      role: string;
+      content: { type: string; text: string }[];
+      locus?: string;
+    }[]
+  >([]);
   const [nextUserMessage, setNextUserMessage] = useState<string>("");
   const [nextGenomeMessage, setNextGenomeMessage] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,14 +25,15 @@ export default function GenomeChat() {
 
     setMessages((prevMessages) => {
       const newMessage = {
-        id: prevMessages.length + 1,
-        message: nextUserMessage,
-        type: "user",
+        id: `id-${prevMessages.length + 1}`,
+        content: [{ type: "text", text: nextUserMessage }],
+        role: "user",
       };
 
       return [...prevMessages, newMessage];
     });
     setNextUserMessage("");
+    await new Promise(requestAnimationFrame);
 
     setIsSubmitting(true);
     try {
@@ -69,6 +47,7 @@ export default function GenomeChat() {
           },
           body: JSON.stringify({
             messages: [
+              ...messages,
               {
                 role: "user",
                 content: [{ type: "text", text: nextUserMessage }],
@@ -132,7 +111,7 @@ export default function GenomeChat() {
 
             if (
               json?.type === "content_block_stop" &&
-              json?.content_block?.input.name === "get_snp_base_pairs"
+              json?.content_block?.input?.name === "get_snp_base_pairs"
             ) {
               locus = `chr${json?.content_block?.input?.chromosome}:${json?.content_block?.input?.position}`;
             }
@@ -140,10 +119,10 @@ export default function GenomeChat() {
             if (json.type === "message_stop") {
               setMessages((prevMessages) => {
                 const newMessage = {
-                  id: prevMessages.length + 1,
-                  message: lastSnapshot,
-                  type: "genome",
-                  locus: locus,
+                  id: `id-${prevMessages.length + 1}`,
+                  content: [{ type: "text", text: lastSnapshot }],
+                  role: "assistant",
+                  locus: locus || `chr2:${Math.round(Math.random() * 10000)}`,
                 };
                 return [...prevMessages, newMessage];
               });
@@ -170,15 +149,17 @@ export default function GenomeChat() {
         <p className="font-mono text-sm opacity-80">Genome Chat</p>
       </div>
 
-      {messages.map((message) => {
+      {messages.map((message, i) => {
         return (
           <div
-            key={message.id}
+            key={`id-${message.id}` || i}
             className={`bg-white/10 rounded-lg p-3 mb-3 max-w-lg whitespace-pre-line ${
-              message.type === "user" ? "ml-auto" : ""
+              message.role === "user" ? "ml-auto" : ""
             }`}
           >
-            <p className="text-sm">{message.message}</p>
+            <p className="text-sm">
+              {message.content.map((it) => it.text).join("")}
+            </p>
             {message.locus && (
               <small
                 className="text-cyan-400 opacity-80 cursor-pointer hover:opacity-50"
