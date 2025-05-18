@@ -53,9 +53,17 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
             "SLCO1B1": "*5/*15 OR *5/*46 OR *5/*47 OR *15/*40 OR *40/*46 OR *40/*47"
         },
         "MCM6": {},
+        "SLCO1B1": {'SLCO1B1': '*5/*15 OR *5/*46 OR *5/*47 OR *15/*40 OR *40/*46 OR *40/*47'},
+        "MCM6": {},
+        "CYP3A4,CYP3A5'": {'CYP3A4': '*1/*22 OR *1/*37', 'CYP3A5': '*3/*3'}
     }
-    if ",".join(sorted(genes)) in cached_results:
-        return {"diplotypes": cached_results[",".join(sorted(genes))]}
+    key = ','.join(sorted(genes))
+    if key in cached_results:
+        print(f"{key=} found in cache, returning cached result for pharmcat_diplotypes")
+        return {'diplotypes': cached_results[','.join(sorted(genes))]}
+    else:
+        print(f"{key=} NOT found in cache, returning cached result for pharmcat_diplotypes")
+
 
     vcf_path = os.environ.get("VCF_FILE_PATH")
     if not vcf_path:
