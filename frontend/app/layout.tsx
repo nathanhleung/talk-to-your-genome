@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Talk to Your Genome",
+  title: "Wenome: Talk to Your Genome",
   description:
     "Understand your DNA with the power of conversation. Ask questions, get personalized insights.",
 };
