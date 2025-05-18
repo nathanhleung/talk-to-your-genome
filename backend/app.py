@@ -7,9 +7,8 @@ import time
 from typing import Annotated, Any, Dict, List
 
 import diskcache  # Added for persistent caching
-import requests  # Added for the new tool  # Added for the new tool
+import requests  # Added for the new tool
 from dotenv import load_dotenv
-from starlette.responses import FileResponse
 
 cache = diskcache.Cache("pharmcat_cache3")  # Initialize cache
 
@@ -168,46 +167,26 @@ def get_snp_base_pairs_tool(chromosome: int, position: int) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to read VCF file {vcf_file_path}: {str(e)}"}
 
-    found_snp_info = {}
+    response = ""
+    # Search line by line for matching record
     for record in reader:
-        if record.CHROM == target_chrom and record.POS == target_pos:
-            call = record.calls[
-                0
-            ]  # Assuming single sample VCF or interested in the first sample
+        # print(target_chrom, target_pos)
+        # print(record.CHROM, record.POS)
+
+        if record.CHROM == target_chrom and record.POS >= target_pos:
+            response += f"Found SNP at {target_chrom}:{target_pos}"
+
+            call = record.calls[0]
             gt = call.data.get("GT")
 
+            # Translate GT to base pairs
             alleles = [record.REF] + [alt.value for alt in record.ALT]
-            gt_bases_list = []
-            if gt:
-                gt_indices_str = gt.replace("|", "/").split("/")
-                for i_str in gt_indices_str:
-                    if i_str == ".":
-                        gt_bases_list.append(".")
-                    else:
-                        try:
-                            idx = int(i_str)
-                            if 0 <= idx < len(alleles):
-                                gt_bases_list.append(alleles[idx])
-                            else:
-                                gt_bases_list.append(
-                                    f"Error:IndexOutOfRange({i_str})"
-                                )  # Should not happen with valid VCF
-                        except ValueError:
-                            gt_bases_list.append(f"Error:NonNumericIndex({i_str})")
+            gt_indices = gt.replace("|", "/").split("/")
+            gt_bases = [alleles[int(i)] if i != "." else "." for i in gt_indices]
 
-            found_snp_info = {
-                "chromosome": record.CHROM,
-                "position": record.POS,
-                "id": record.ID[0] if record.ID else "N/A",
-                "ref_allele": record.REF,
-                "alt_alleles": [alt.value for alt in record.ALT],
-                "genotype_str": gt if gt else "N/A",
-                "genotype_bases": "/".join(gt_bases_list)
-                if gt_bases_list
-                else "N/A (No GT)",
-            }
-            reader.close()
-            return {"snp_data": found_snp_info}
+            response += f"\nGenotype: {gt} → Bases: {'/'.join(gt_bases)}"
+
+            return {"response": response}
 
     reader.close()
     return {"message": f"SNP not found at {target_chrom}:{target_pos}"}
