@@ -126,7 +126,7 @@ export default function GenomeChat() {
                   id: `id-${prevMessages.length + 1}`,
                   content: [{ type: "text", text: lastSnapshot.trim() }],
                   role: "assistant",
-                  locus: locus || `chr2:${Math.round(Math.random() * 10000)}`,
+                  locus: locus,
                 };
                 lastSnapshot = "";
                 return [...prevMessages, newMessage];
