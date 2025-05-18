@@ -1,5 +1,6 @@
 import os
 import subprocess
+from functools import lru_cache
 from typing import List, Dict, Any, Optional
 import json  # For parsing tool input if necessary, and formatting tool output
 import time
@@ -26,6 +27,7 @@ app.add_middleware(
 
 
 # --- New pharmcat_diplotypes function ---
+@lru_cache
 def pharmcat_diplotypes(genes: List[str]) -> Dict:
     """
     1. Mounts the directory of `vcf_path` into /data in the PharmCAT container.
@@ -51,7 +53,7 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
     stem = os.path.splitext(base)[0]
 
     cmd = [
-        "docker", "run", "--rm",
+        "sudo" "docker", "run", "--rm",
         "-v", f"{workdir}:/data",
         "pgkb/pharmcat",
         "pharmcat_pipeline",
