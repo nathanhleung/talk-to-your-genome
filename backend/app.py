@@ -9,6 +9,7 @@ from typing import Annotated, Any, Dict, List
 import diskcache  # Added for persistent caching
 import requests  # Added for the new tool
 from dotenv import load_dotenv
+from starlette.responses import FileResponse
 
 cache = diskcache.Cache("pharmcat_cache3")  # Initialize cache
 
