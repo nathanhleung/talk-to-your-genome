@@ -48,7 +48,9 @@ export default function GenomeChat() {
           },
           body: JSON.stringify({
             messages: [
-              ...messages.map((message) => omit(message, ["locus", "id"])),
+              ...messages
+                .map((message) => omit(message, ["locus", "id"]))
+                .filter((message) => message.role !== "tool"),
               {
                 role: "user",
                 content: [{ type: "text", text: nextUserMessage }],
@@ -80,6 +82,7 @@ export default function GenomeChat() {
 
       const decoder = new TextDecoder();
       let buffer = "";
+      let locus = "";
 
       while (true) {
         const { value, done } = await reader.read();
@@ -89,7 +92,6 @@ export default function GenomeChat() {
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
         let lastSnapshot = "";
-        let locus = "";
 
         for (const line of lines) {
           if (line.trim() === "") {
@@ -112,29 +114,49 @@ export default function GenomeChat() {
 
             if (
               json?.type === "content_block_stop" &&
-              json?.content_block?.input?.name === "get_snp_base_pairs"
+              json?.content_block?.name === "get_snp_base_pairs"
             ) {
               locus = `chr${json?.content_block?.input?.chromosome}:${json?.content_block?.input?.position}`;
+            }
+
+            if (
+              json?.type === "content_block_stop" &&
+              json?.content_block?.type === "tool_use"
+            ) {
+              setMessages((prevMessages) => {
+                const newMessage = {
+                  id: `id-${prevMessages.length + 1}`,
+                  content: [
+                    {
+                      type: "text",
+                      text: `Using tool \`${json?.content_block?.name}\`...`,
+                    },
+                  ],
+                  role: "tool",
+                };
+                return [...prevMessages, newMessage];
+              });
             }
 
             if (
               json.type === "content_block_stop" &&
               lastSnapshot.trim() !== ""
             ) {
+              if (locus) {
+                setLocus(locus);
+              }
               setMessages((prevMessages) => {
                 const newMessage = {
                   id: `id-${prevMessages.length + 1}`,
                   content: [{ type: "text", text: lastSnapshot.trim() }],
                   role: "assistant",
-                  locus: locus,
+                  locus,
                 };
                 lastSnapshot = "";
+                locus = "";
                 return [...prevMessages, newMessage];
               });
               setNextGenomeMessage("");
-              if (locus) {
-                setLocus(locus);
-              }
               await new Promise(requestAnimationFrame);
               setTimeout(() => {
                 window.scrollTo({
@@ -165,6 +187,19 @@ export default function GenomeChat() {
       </div>
 
       {messages.map((message, i) => {
+        if (message.role === "tool") {
+          return (
+            <div
+              key={`id-${message.id}` || i}
+              className="rounded-lg p-2 mb-3 max-w-lg ml-2"
+            >
+              <p className="text-xs">
+                {message.content.map((it) => it.text).join("")}
+              </p>
+            </div>
+          );
+        }
+
         return (
           <div
             key={`id-${message.id}` || i}
@@ -190,7 +225,7 @@ export default function GenomeChat() {
                   }
                 }}
               >
-                View genome at {message.locus}
+                See relevant genetic data at {message.locus}
               </small>
             )}
           </div>
