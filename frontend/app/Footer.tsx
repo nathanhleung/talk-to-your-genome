@@ -9,7 +9,7 @@ export default function Footer() {
           rel="noopener noreferrer"
           className="text-cyan-400 hover:underline"
         >
-          Out of Pocket's Healthcare AI Hackathon
+          Out of Pocket&apos;s Healthcare AI Hackathon
         </a>
         <div className="text-xs mt-2">
           Powered by{" "}
