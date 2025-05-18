@@ -1,6 +1,7 @@
 import { locusAtom } from "@/app/genome/atoms";
 import { useSetAtom } from "jotai";
 import { useState } from "react";
+import { toast } from "react-hot-toast";
 
 const PLACEHOLDER_MESSAGES: {
   id: number;
@@ -36,8 +37,10 @@ export default function GenomeChat() {
   const setLocus = useSetAtom(locusAtom);
   const [messages, setMessages] = useState(PLACEHOLDER_MESSAGES);
   const [nextUserMessage, setNextUserMessage] = useState<string>("");
+  const [nextGenomeMessage, setNextGenomeMessage] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function onSubmitNewUserMessage(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmitNewUserMessage(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (nextUserMessage.trim() === "") {
       return;
@@ -52,40 +55,112 @@ export default function GenomeChat() {
 
       return [...prevMessages, newMessage];
     });
-    setTimeout(() => {
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: "smooth",
-      });
-    }, 0);
-
-    // Clear the input field
     setNextUserMessage("");
 
-    // Simulate a response from the genome
-    setTimeout(() => {
-      const locusChr = "chr2:";
-      const locusPos = Math.floor(Math.random() * 1000000);
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_BACKEND_AUTH_TOKEN}`,
+          },
+          body: JSON.stringify({
+            messages: [
+              {
+                role: "user",
+                content: [{ type: "text", text: nextUserMessage }],
+              },
+            ],
+          }),
+        }
+      );
 
-      setMessages((prevMessages) => {
-        const genomeResponse = {
-          id: prevMessages.length + 1,
-          message: "You should look at this part of your genome.",
-          type: "genome",
-          locus: `${locusChr}${locusPos}`,
-        };
+      if (!response.ok || !response.body) {
+        toast.error("Unable to send message. Please try again later.");
+        setNextUserMessage(nextUserMessage);
+        return;
+      }
 
-        return [...prevMessages, genomeResponse];
-      });
+      const reader = response.body?.getReader();
+      if (!reader) {
+        toast.error("Unable to read response. Please try again later.");
+        setNextUserMessage(nextUserMessage);
+        return;
+      }
 
-      setLocus(`${locusChr}${locusPos}`);
       setTimeout(() => {
         window.scrollTo({
           top: document.body.scrollHeight,
           behavior: "smooth",
         });
       }, 0);
-    }, 1000);
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        let lastSnapshot = "";
+        let locus = "";
+
+        for (const line of lines) {
+          if (line.trim() === "") {
+            continue;
+          }
+
+          try {
+            const json = JSON.parse(line);
+            console.debug(json);
+
+            setIsSubmitting(false);
+            await new Promise(requestAnimationFrame);
+
+            if (json.type === "text") {
+              setNextGenomeMessage(json.snapshot);
+              lastSnapshot = json.snapshot;
+              // Allow React to flish the state update
+              await new Promise(requestAnimationFrame);
+            }
+
+            if (
+              json?.type === "content_block_stop" &&
+              json?.content_block?.input.name === "get_snp_base_pairs"
+            ) {
+              locus = `chr${json?.content_block?.input?.chromosome}:${json?.content_block?.input?.position}`;
+            }
+
+            if (json.type === "message_stop") {
+              setMessages((prevMessages) => {
+                const newMessage = {
+                  id: prevMessages.length + 1,
+                  message: lastSnapshot,
+                  type: "genome",
+                  locus: locus,
+                };
+                return [...prevMessages, newMessage];
+              });
+              setNextGenomeMessage("");
+            }
+          } catch (err) {
+            console.error(err);
+            toast.error("Unable to parse response.");
+          }
+        }
+      }
+
+      // Clear the input field
+      setNextUserMessage("");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -99,7 +174,7 @@ export default function GenomeChat() {
         return (
           <div
             key={message.id}
-            className={`bg-white/10 rounded-lg p-3 mb-3 max-w-lg ${
+            className={`bg-white/10 rounded-lg p-3 mb-3 max-w-lg whitespace-pre-line ${
               message.type === "user" ? "ml-auto" : ""
             }`}
           >
@@ -126,6 +201,26 @@ export default function GenomeChat() {
         );
       })}
 
+      {nextGenomeMessage !== "" && (
+        <div className="bg-white/10 rounded-lg p-3 mb-3 max-w-lg">
+          <p className="text-sm whitespace-pre-line">{nextGenomeMessage}</p>
+        </div>
+      )}
+
+      {isSubmitting && (
+        <div className="bg-white/10 rounded-lg p-3 mb-3 max-w-lg flex items-center space-x-3">
+          <div className="flex space-x-1">
+            {[...Array(3)].map((_, i) => (
+              <span
+                key={i}
+                className={`block w-1 h-1 rounded-full bg-white animate-[bounce_1.2s_ease-in-out_infinite]`}
+                style={{ animationDelay: `${i * 0.2}s` }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="relative flex items-center mt-4 bg-white/5 rounded-lg p-2 border-white/30 border-1">
         <form
           onSubmit={onSubmitNewUserMessage}
@@ -140,7 +235,8 @@ export default function GenomeChat() {
           />
           <button
             type="submit"
-            className="ml-2 w-8 h-8 rounded-lg bg-cyan-500 flex items-center justify-center cursor-pointer hover:bg-cyan-400 transition-colors duration-200"
+            disabled={nextUserMessage.trim() === "" || isSubmitting}
+            className="ml-2 w-8 h-8 rounded-lg bg-cyan-500 flex items-center justify-center cursor-pointer hover:bg-cyan-400 transition-colors duration-200 disabled:bg-gray-500/50 disabled:cursor-not-allowed"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
