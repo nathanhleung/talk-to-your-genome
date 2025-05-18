@@ -7,6 +7,8 @@ import time
 from typing import Any, Dict, List
 
 import diskcache  # Added for persistent caching
+import requests # Added for the new tool
+from starlette.responses import FileResponse
 import requests  # Added for the new tool
 from dotenv import load_dotenv
 
@@ -706,6 +708,13 @@ async def search_snpedia(request: ChatRequest):  # Updated request model
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.get("/")
+async def main():
+    return FileResponse(
+        "ui.html"
+    )
 
 
 if __name__ == "__main__":
