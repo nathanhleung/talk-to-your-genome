@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 import diskcache  # Added for persistent caching
 import requests # Added for the new tool
+from starlette.responses import FileResponse
 
 cache = diskcache.Cache("pharmcat_cache3")  # Initialize cache
 
@@ -564,6 +565,13 @@ async def search_snpedia(request: ChatRequest):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.get("/")
+async def main():
+    return FileResponse(
+        "ui.html"
+    )
 
 
 if __name__ == "__main__":

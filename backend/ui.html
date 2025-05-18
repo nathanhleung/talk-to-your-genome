@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue SNP Chat</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f4f9;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #app {
+            width: 100%;
+            max-width: 700px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 90vh; /* Max height */
+            max-height: 800px;
+        }
+        .chat-window {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .message.user {
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        .message.assistant {
+            background-color: #e9ecef;
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+        .message .role-label {
+            font-weight: bold;
+            font-size: 0.8em;
+            margin-bottom: 4px;
+            color: #555;
+        }
+        .message.user .role-label {
+            color: #cce5ff;
+        }
+        .message-content {
+            white-space: pre-wrap; /* Preserve newlines and spaces */
+        }
+        .input-area {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #eee;
+        }
+        .input-area input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            margin-right: 10px;
+            font-size: 1em;
+        }
+        .input-area button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .input-area button:disabled {
+            background-color: #aaa;
+        }
+        .loading-indicator, .error-message {
+            padding: 10px;
+            text-align: center;
+            font-style: italic;
+        }
+        .error-message {
+            color: red;
+        }
+        .info-message {
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+            margin-bottom: 10px;
+            background-color: #f0f0f0;
+            padding: 5px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="chat-window" ref="chatWindow">
+            <div v-for="(msg, index) in messages" :key="index" :class="['message', msg.role]">
+                <div class="role-label">{{ msg.role === 'user' ? 'You' : 'Assistant' }}</div>
+                <div class="message-content" v-html="renderMessageContent(msg.content)"></div>
+            </div>
+            <div v-if="currentAssistantMessageParts.length > 0" class="message assistant">
+                 <div class="role-label">Assistant</div>
+                 <div class="message-content" v-html="renderMessageContent(currentAssistantMessageParts)"></div>
+            </div>
+            <div v-if="systemInfoMessage" class="info-message">
+                {{ systemInfoMessage }}
+            </div>
+        </div>
+        <div v-if="isLoading" class="loading-indicator">Assistant is thinking...</div>
+        <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
+        <div class="input-area">
+            <input type="text" v-model.trim="userInput" @keyup.enter="sendMessage" :disabled="isLoading" placeholder="Ask about your SNPs...">
+            <button @click="sendMessage" :disabled="isLoading || !userInput">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, nextTick, computed } = Vue;
+
+        createApp({
+            setup() {
+                const messages = ref([]); // Stores the full chat history: { role: 'user'/'assistant', content: Array | string }
+                const userInput = ref('');
+                const isLoading = ref(false);
+                const errorMessage = ref('');
+                const chatWindow = ref(null);
+                const apiToken = 'texakloma'; // Your hardcoded token
+
+                // For handling streaming response
+                let currentMessageId = null;
+                const currentAssistantMessageParts = ref([]); // Array of content blocks (text or tool_use)
+                const systemInfoMessage = ref('');
+
+
+                const scrollToBottom = () => {
+                    nextTick(() => {
+                        if (chatWindow.value) {
+                            chatWindow.value.scrollTop = chatWindow.value.scrollHeight;
+                        }
+                    });
+                };
+
+                // Function to render message content, potentially handling complex structures
+                const renderMessageContent = (content) => {
+                    if (Array.isArray(content)) {
+                        let html = '';
+                        content.forEach(block => {
+                            if (block.type === 'text') {
+                                html += block.text.replace(/\n/g, '<br>');
+                            } else if (block.type === 'tool_use') {
+                                html += `<em>Tool Used: ${block.name} with input ${JSON.stringify(block.input)}</em><br>`;
+                            } else if (block.text) { // Fallback for simple text string if somehow mixed
+                                html += block.text.replace(/\n/g, '<br>');
+                            }
+                        });
+                        return html;
+                    } else if (typeof content === 'string') {
+                         return content.replace(/\n/g, '<br>'); // Simple string content
+                    }
+                    return '';
+                };
+
+
+                const sendMessage = async () => {
+                    if (!userInput.value || isLoading.value) return;
+
+                    const userMessageContent = userInput.value;
+                    messages.value.push({ role: 'user', content: [{ type: 'text', text: userMessageContent }] });
+                    userInput.value = '';
+                    isLoading.value = true;
+                    errorMessage.value = '';
+                    currentAssistantMessageParts.value = [];
+                    systemInfoMessage.value = '';
+
+                    scrollToBottom();
+
+                    try {
+                        const response = await fetch('/chat', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                messages: messages.value.map(m => ({
+                                    role: m.role,
+                                    // Ensure content is always an array of blocks for the API
+                                    content: Array.isArray(m.content) ? m.content : [{type: "text", text: m.content }]
+                                })),
+                                token: apiToken
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+                            throw new Error(`HTTP error ${response.status}: ${errorData.detail || response.statusText}`);
+                        }
+
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        let buffer = '';
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop(); // Keep the last (potentially incomplete) line
+
+                            for (const line of lines) {
+                                if (line.trim() === '') continue;
+                                try {
+                                    const event = JSON.parse(line);
+                                    console.log("Received event:", event); // For debugging
+
+                                    if (event.type === 'message_start') {
+                                        currentMessageId = event.message.id;
+                                        currentAssistantMessageParts.value = []; // Reset for new message
+                                        systemInfoMessage.value = '';
+                                    } else if (event.type === 'content_block_start') {
+                                        if (event.content_block.type === 'text') {
+                                            // Initialize with an empty text string if it's a text block
+                                            currentAssistantMessageParts.value.push({ type: 'text', text: '' });
+                                        } else if (event.content_block.type === 'tool_use') {
+                                            // Directly add tool use block
+                                            currentAssistantMessageParts.value.push({
+                                                type: 'tool_use',
+                                                id: event.content_block.id,
+                                                name: event.content_block.name,
+                                                input: event.content_block.input
+                                            });
+                                            systemInfoMessage.value = `Assistant is using tool: ${event.content_block.name}...`;
+                                        }
+                                    } else if (event.type === 'content_block_delta') {
+                                        if (event.delta.type === 'text_delta') {
+                                            // Find the last text block and append to it
+                                            const lastTextPart = currentAssistantMessageParts.value.slice().reverse().find(p => p.type === 'text');
+                                            if (lastTextPart) {
+                                                lastTextPart.text += event.delta.text;
+                                            } else { // Should have been initialized by content_block_start
+                                                currentAssistantMessageParts.value.push({ type: 'text', text: event.delta.text });
+                                            }
+                                        }
+                                    } else if (event.type === 'message_delta') {
+                                        // Can contain stop_reason, stop_sequence, usage
+                                        if (event.delta && event.delta.stop_reason === 'tool_use') {
+                                           // systemInfoMessage.value = 'Assistant is processing tool results...';
+                                        }
+                                    } else if (event.type === 'message_stop') {
+                                        // Message is complete, add currentAssistantMessage to messages
+                                        if (currentAssistantMessageParts.value.length > 0) {
+                                            messages.value.push({
+                                                role: 'assistant',
+                                                content: JSON.parse(JSON.stringify(currentAssistantMessageParts.value)) // Deep copy
+                                            });
+                                        }
+                                        currentAssistantMessageParts.value = [];
+                                        currentMessageId = null;
+                                        systemInfoMessage.value = '';
+                                    } else if (event.type === 'info') { // Custom info event from backend
+                                        systemInfoMessage.value = event.text;
+                                    } else if (event.type === 'error' && event.text) { // Custom error event
+                                        errorMessage.value = `Stream Error: ${event.text}`;
+                                        systemInfoMessage.value = ''; // Clear info message on error
+                                    }
+
+                                    scrollToBottom();
+
+                                } catch (e) {
+                                    console.error("Error parsing stream line:", line, e);
+                                    errorMessage.value = 'Error processing response stream.';
+                                }
+                            }
+                        }
+
+                    } catch (err) {
+                        console.error("SendMessage error:", err);
+                        errorMessage.value = err.message || 'Failed to send message.';
+                    } finally {
+                        isLoading.value = false;
+                        if (currentAssistantMessageParts.value.length > 0) {
+                             // If streaming ended abruptly but we have content, add it
+                            messages.value.push({
+                                role: 'assistant',
+                                content: JSON.parse(JSON.stringify(currentAssistantMessageParts.value))
+                            });
+                            currentAssistantMessageParts.value = [];
+                        }
+                        systemInfoMessage.value = ''; // Clear any lingering system messages
+                        scrollToBottom();
+                    }
+                };
+
+                return {
+                    messages,
+                    userInput,
+                    isLoading,
+                    errorMessage,
+                    sendMessage,
+                    chatWindow,
+                    currentAssistantMessageParts,
+                    renderMessageContent,
+                    systemInfoMessage
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
