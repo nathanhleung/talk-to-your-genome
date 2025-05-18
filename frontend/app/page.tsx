@@ -78,20 +78,20 @@ export default function Home() {
                   <p className="font-mono text-sm opacity-80">Genome Chat</p>
                 </div>
 
-                <div className="bg-white/10 rounded-lg p-3 mb-3 max-w-xs">
+                <div className="bg-white/10 rounded-lg p-3 mb-3 max-w-xs ml-auto">
                   <p className="text-sm">
                     What medications should I avoid with my genetics?
                   </p>
                 </div>
 
-                <div className="bg-white/20 rounded-lg p-3 mb-3 ml-auto max-w-xs">
+                <div className="bg-white/20 rounded-lg p-3 mb-3 max-w-xs">
                   <p className="text-sm">
                     Based on your CYP2D6 variants, consider alternatives to
                     codeine and tramadol.
                   </p>
                 </div>
 
-                <div className="bg-white/10 rounded-lg p-3 max-w-xs">
+                <div className="bg-white/10 rounded-lg p-3 max-w-xs ml-auto">
                   <p className="text-sm">What about my cardiovascular risk?</p>
                 </div>
 
