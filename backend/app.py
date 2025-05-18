@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 import diskcache  # Added for persistent caching
 
-cache = diskcache.Cache("pharmcat_cache")  # Initialize cache
+cache = diskcache.Cache("pharmcat_cache2")  # Initialize cache
 
 load_dotenv()
 
@@ -360,6 +360,7 @@ async def search_snpedia(request: ChatRequest):  # Updated request model
                         else:
                             # Convert to tuple for caching if genes list can be large, though diskcache handles lists
                             tool_output = pharmcat_diplotypes(genes=tuple(sorted(genes_to_process)))
+                            print(f"{tool_output=}")
                         tool_output_content = json.dumps(tool_output)
 
                     elif tool_name == "get_snp_base_pairs":
