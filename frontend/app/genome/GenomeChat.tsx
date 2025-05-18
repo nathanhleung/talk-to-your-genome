@@ -122,7 +122,7 @@ export default function GenomeChat() {
                   id: `id-${prevMessages.length + 1}`,
                   content: [{ type: "text", text: lastSnapshot }],
                   role: "assistant",
-                  locus: locus || `chr2:${Math.round(Math.random() * 10000)}`,
+                  locus: locus,
                 };
                 return [...prevMessages, newMessage];
               });
