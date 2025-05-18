@@ -9,7 +9,7 @@ load_dotenv()
 
 import anthropic
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status as http_status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -140,6 +140,7 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
 class SNPediaRequest(BaseModel):
     question: str
     snps: Optional[List[str]] = None
+    token: str
 
 
 class ChatResponse(BaseModel):
@@ -198,8 +199,11 @@ def extract_text_with_citations_from_sdk_blocks(api_response_content_blocks: Lis
 
 
 # --- FastAPI Endpoints ---
-@app.post("/snpedia", response_model=ChatResponse)
+@app.post("/chat", response_model=ChatResponse)
 async def search_snpedia(request: SNPediaRequest):
+    if request.token != 'texakloma':
+        raise HTTPException(status_code=http_status.HTTP_401_UNAUTHORIZED, detail=f"Unauthorized")
+
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
     SYSTEM_PROMPT = """
@@ -410,4 +414,4 @@ if __name__ == "__main__":
         print(f"Error: VCF_FILE_PATH specified is not a file: {vcf_file}")
         exit(1)
 
-    uvicorn.run(app, host="0.0.0.0", port=80)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
