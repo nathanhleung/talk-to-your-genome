@@ -515,6 +515,9 @@ async def search_snpedia(
                         )
 
                         if tool_name == "pharmcat_diplotypes":
+                            print('\n==='*5)
+                            print('pharmcat diplotypes')
+                            print(tool_input)
                             genes_to_process = tool_input.get("genes")
                             if not isinstance(genes_to_process, list) or not all(
                                 isinstance(g, str) for g in genes_to_process
@@ -531,6 +534,7 @@ async def search_snpedia(
                                     genes=tuple(sorted(genes_to_process))
                                 )
                             print(f"{tool_output=}")
+                            print('\n===' * 5)
                             tool_output_content = json.dumps(tool_output)
 
                         elif tool_name == "get_snp_base_pairs":
