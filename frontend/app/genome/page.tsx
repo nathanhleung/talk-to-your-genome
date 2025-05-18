@@ -1,5 +1,6 @@
 "use client";
 
+import Footer from "@/app/Footer";
 import { locusAtom } from "@/app/genome/atoms";
 import GenomeChat from "@/app/genome/GenomeChat";
 import clsx from "clsx";
@@ -141,31 +142,8 @@ export default function Genome() {
             Interactive Genome Visualization
           </p>
         </div>
-
-        <div>
-          <p className="text-center opacity-80 text-xs mt-8">
-            &copy; 2025 Team 12. Powered by{" "}
-            <a
-              href="https://anthropic.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-cyan-400 hover:underline"
-            >
-              Anthropic
-            </a>{" "}
-            and{" "}
-            <a
-              href="https://pharmcat.org/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-cyan-400 hover:underline"
-            >
-              PharmCAT
-            </a>
-            .
-          </p>
-        </div>
       </div>
+      <Footer />
     </main>
   );
 }

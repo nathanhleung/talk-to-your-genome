@@ -1,5 +1,6 @@
 "use client";
 
+import Footer from "@/app/Footer";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 
@@ -127,40 +128,8 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        <div>
-          <p className="text-center opacity-80 text-xs mt-8">
-            &copy; 2025 Team 12. Powered by{" "}
-            <a
-              href="https://anthropic.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-cyan-400 hover:underline"
-            >
-              Anthropic
-            </a>{" "}
-            and{" "}
-            <a
-              href="https://pharmcat.org/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-cyan-400 hover:underline"
-            >
-              PharmCAT
-            </a>
-            . View code on{" "}
-            <a
-              href="https://github.com/nathanhleung/talk-to-your-genome/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-cyan-400 hover:underline"
-            >
-              GitHub
-            </a>
-            .
-          </p>
-        </div>
       </div>
+      <Footer />
     </main>
   );
 }
