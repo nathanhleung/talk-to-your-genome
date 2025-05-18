@@ -47,7 +47,9 @@ export default function IGV() {
 
   useEffect(() => {
     if (igvBrowserRef.current) {
-      const browser = igvBrowserRef.current as any;
+      const browser = igvBrowserRef.current;
+
+      // @ts-expect-error no typings
       browser.search(locus);
 
       const igvDiv = igvDivRef.current;

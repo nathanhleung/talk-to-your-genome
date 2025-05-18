@@ -2,7 +2,12 @@ import { locusAtom } from "@/app/genome/atoms";
 import { useSetAtom } from "jotai";
 import { useState } from "react";
 
-const PLACEHOLDER_MESSAGES = [
+const PLACEHOLDER_MESSAGES: {
+  id: number;
+  message: string;
+  type: string;
+  locus?: string;
+}[] = [
   {
     id: 1,
     message: "What medications should I avoid with my genetics?",
