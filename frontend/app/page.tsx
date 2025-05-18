@@ -1,8 +1,15 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useRef } from "react";
+
 export default function Home() {
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   function uploadGenome() {
-    alert("Not implemented yet");
+    // After file is selected, we redirect to the /genome page
+    fileInputRef.current?.click();
   }
 
   return (
@@ -31,6 +38,14 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={() => {
+                  router.push("/genome");
+                }}
+              />
               <button
                 onClick={uploadGenome}
                 className="flex gap-2 items-center bg-gradient-to-r from-cyan-600 to-teal-400 text-white font-bold py-4 px-6 rounded-2xl text-lg shadow-2xl hover:scale-105 active:scale-95 active:shadow-sm transition-transform transition-shadow duration-300 ease-out cursor-pointer"
@@ -63,20 +78,20 @@ export default function Home() {
                   <p className="font-mono text-sm opacity-80">Genome Chat</p>
                 </div>
 
-                <div className="bg-white/10 rounded-lg p-3 mb-3 max-w-xs">
+                <div className="bg-white/10 rounded-lg p-3 mb-3 max-w-xs ml-auto">
                   <p className="text-sm">
                     What medications should I avoid with my genetics?
                   </p>
                 </div>
 
-                <div className="bg-white/20 rounded-lg p-3 mb-3 ml-auto max-w-xs">
+                <div className="bg-white/20 rounded-lg p-3 mb-3 max-w-xs">
                   <p className="text-sm">
                     Based on your CYP2D6 variants, consider alternatives to
                     codeine and tramadol.
                   </p>
                 </div>
 
-                <div className="bg-white/10 rounded-lg p-3 max-w-xs">
+                <div className="bg-white/10 rounded-lg p-3 max-w-xs ml-auto">
                   <p className="text-sm">What about my cardiovascular risk?</p>
                 </div>
 
@@ -85,7 +100,9 @@ export default function Home() {
                     onClick={uploadGenome}
                     className="flex-1 h-8 rounded-lg bg-white/5 flex items-center px-4 cursor-text"
                   >
-                    <p className="text-sm text-white/60">Ask your genome...</p>
+                    <p className="text-sm text-white/60">
+                      Upload genome to talk...
+                    </p>
                   </div>
                   <div
                     onClick={uploadGenome}
