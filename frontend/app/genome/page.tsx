@@ -1,7 +1,9 @@
 "use client";
 
+import { locusAtom } from "@/app/genome/atoms";
 import GenomeChat from "@/app/genome/GenomeChat";
 import clsx from "clsx";
+import { useAtomValue } from "jotai";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -23,6 +25,20 @@ export default function Genome() {
   const [isLoading, setIsLoading] = useState(
     process.env.NODE_ENV !== "development"
   );
+  const locus = useAtomValue(locusAtom);
+  const [isIgvPulsing, setIsIgvPulsing] = useState(true);
+  useEffect(() => {
+    setIsIgvPulsing(true);
+
+    const timeout = setTimeout(() => {
+      setIsIgvPulsing(false);
+    }, 500);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [locus]);
+
   const [loadingSubtitle, setLoadingSubtitle] = useState(LOADING_SUBTITLES[0]);
   useEffect(() => {
     const interval = setInterval(() => {
@@ -114,7 +130,12 @@ export default function Genome() {
           <GenomeChat />
         </div>
 
-        <div className="rounded-lg shadow-lg p-4 w-full mx-auto text-black text-center bg-white opacity-95 backdrop-blur-xl mt-8">
+        <div
+          className={clsx(
+            "rounded-lg shadow-lg p-4 w-full mx-auto text-black text-center bg-white opacity-95 backdrop-blur-xl mt-8 animate__animated",
+            isIgvPulsing && "animate__pulse"
+          )}
+        >
           <IGV />
           <p className="text-xs opacity-80 mt-1">
             Interactive Genome Visualization

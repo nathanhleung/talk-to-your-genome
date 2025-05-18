@@ -13,11 +13,14 @@ declare global {
   }
 }
 
+import { locusAtom } from "@/app/genome/atoms";
 // Adds `igv` to the global scope
 import "igv";
+import { useAtomValue } from "jotai";
 import { useEffect, useRef } from "react";
 
 export default function IGV() {
+  const locus = useAtomValue(locusAtom);
   const igvDivRef = useRef<HTMLDivElement>(null);
   const igvBrowserRef = useRef<unknown>(null);
 
@@ -41,6 +44,20 @@ export default function IGV() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (igvBrowserRef.current) {
+      const browser = igvBrowserRef.current;
+
+      // @ts-expect-error no typings
+      browser.search(locus);
+
+      const igvDiv = igvDivRef.current;
+      if (!igvDiv) {
+        return;
+      }
+    }
+  }, [locus]);
 
   return <div id="igv" ref={igvDivRef} />;
 }

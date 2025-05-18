@@ -1,6 +1,13 @@
+import { locusAtom } from "@/app/genome/atoms";
+import { useSetAtom } from "jotai";
 import { useState } from "react";
 
-const PLACEHOLDER_MESSAGES = [
+const PLACEHOLDER_MESSAGES: {
+  id: number;
+  message: string;
+  type: string;
+  locus?: string;
+}[] = [
   {
     id: 1,
     message: "What medications should I avoid with my genetics?",
@@ -26,6 +33,7 @@ const PLACEHOLDER_MESSAGES = [
 ];
 
 export default function GenomeChat() {
+  const setLocus = useSetAtom(locusAtom);
   const [messages, setMessages] = useState(PLACEHOLDER_MESSAGES);
   const [nextUserMessage, setNextUserMessage] = useState<string>("");
 
@@ -56,15 +64,21 @@ export default function GenomeChat() {
 
     // Simulate a response from the genome
     setTimeout(() => {
+      const locusChr = "chr2:";
+      const locusPos = Math.floor(Math.random() * 1000000);
+
       setMessages((prevMessages) => {
         const genomeResponse = {
           id: prevMessages.length + 1,
-          message: "This is a simulated response from the genome.",
+          message: "You should look at this part of your genome.",
           type: "genome",
+          locus: `${locusChr}${locusPos}`,
         };
 
         return [...prevMessages, genomeResponse];
       });
+
+      setLocus(`${locusChr}${locusPos}`);
       setTimeout(() => {
         window.scrollTo({
           top: document.body.scrollHeight,
@@ -90,6 +104,24 @@ export default function GenomeChat() {
             }`}
           >
             <p className="text-sm">{message.message}</p>
+            {message.locus && (
+              <small
+                className="text-cyan-400 opacity-80 cursor-pointer hover:opacity-50"
+                onClick={() => {
+                  if (message.locus) {
+                    setLocus(message.locus);
+                    setTimeout(() => {
+                      window.scrollTo({
+                        top: document.body.scrollHeight,
+                        behavior: "smooth",
+                      });
+                    }, 0);
+                  }
+                }}
+              >
+                View genome at {message.locus}
+              </small>
+            )}
           </div>
         );
       })}

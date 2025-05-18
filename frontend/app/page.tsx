@@ -25,7 +25,8 @@ export default function Home() {
         <div className="flex flex-1 flex-col md:flex-row items-center">
           {/* Left side - copy */}
           <div className="w-full md:w-1/2 text-center md:text-left mb-8 md:mb-0 md:pr-8">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 tracking-tight">
+            <img src="/dna.png" height={64} width={64} />
+            <h1 className="text-5xl md:text-6xl font-bold mb-6 tracking-tight mt-4">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-300">
                 Talk
               </span>{" "}
