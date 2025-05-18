@@ -9,6 +9,7 @@ load_dotenv()
 
 import anthropic
 import uvicorn
+import vcfpy
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -145,6 +146,15 @@ class SNPediaRequest(BaseModel):
 class ChatResponse(BaseModel):
     text: str
     sources: List[str]
+
+
+class BasePairsResponse(BaseModel):
+    response: str
+
+
+class SNPLocation(BaseModel):
+    chromosome: int
+    position: int
 
 
 # --- User's original citation extraction function (renamed for clarity) ---
@@ -382,6 +392,34 @@ async def search_snpedia(request: SNPediaRequest):
             return ChatResponse(text=text, sources=sources)
     return ChatResponse(text="The conversation involved too many steps with internal tools and could not be completed.",
                         sources=[])
+
+ 
+@app.post("/get_snp_base_pairs", response_model=BasePairsResponse)
+async def get_snp_base_pairs(request: SNPLocation):
+    target_chrom = f"chr{request.chromosome}"
+    target_pos = request.position
+
+    reader = vcfpy.Reader.from_path(
+        r"/Users/albertcai/Downloads/DuRant_nucleus_dna_download_vcf_NU-DODC-8148.vcf"
+    )
+
+    response = ""
+    # Search line by line for matching record
+    for record in reader:
+        if record.CHROM == target_chrom and record.POS == target_pos:
+            response += f"Found SNP at {target_chrom}:{target_pos}"
+
+            call = record.calls[0]
+            gt = call.data.get("GT")
+
+            # Translate GT to base pairs
+            alleles = [record.REF] + [alt.value for alt in record.ALT]
+            gt_indices = gt.replace("|", "/").split("/")
+            gt_bases = [alleles[int(i)] if i != "." else "." for i in gt_indices]
+
+            response += f"\nGenotype: {gt} → Bases: {'/'.join(gt_bases)}"
+
+            return {"response": response}
 
 
 @app.get("/health")

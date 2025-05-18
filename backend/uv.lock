@@ -49,6 +49,8 @@ dependencies = [
     { name = "anthropic" },
     { name = "fastapi", extra = ["standard"] },
     { name = "python-dotenv" },
+    { name = "setuptools" },
+    { name = "vcfpy" },
 ]
 
 [package.metadata]
@@ -56,6 +58,8 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.51.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.12" },
     { name = "python-dotenv", specifier = ">=1.1.0" },
+    { name = "setuptools", specifier = "==58" },
+    { name = "vcfpy", specifier = ">=0.13.8" },
 ]
 
 [[package]]
@@ -360,6 +364,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pysam"
+version = "0.23.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f7/ca/88ea596efed2900b830aa36f705742aa192b52ffa0c47577f9aa88e45ab0/pysam-0.23.0.tar.gz", hash = "sha256:81488b3c7e0efc614395e21acde8bdb21c7adafea31736e733173ac7afac0c3e", size = 4845119 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9f/fd/436f45b36f6aff381ca53f28206d00b529ae6450de167833844864a73d4d/pysam-0.23.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:b13eb322ad3726b214df3fe54249af5d91bfca6e4a64abe9f293348edae397e8", size = 8584746 },
+    { url = "https://files.pythonhosted.org/packages/ff/61/98073f02fab565ff18088e629cca5cd45a3c7afd65cbfd6dad55156de99f/pysam-0.23.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:41272520d47a428c4d17441eab88d7c5b1ad609ba729cc0cd96960b8a8589e93", size = 8260116 },
+    { url = "https://files.pythonhosted.org/packages/b2/ef/ed08833247f1d110a5686da2d6e8f1507cc6dbc7075d21e0a0d542ab748a/pysam-0.23.0-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:e0426928e676e5d9f8320cd09741be905f90be5c7133f3ad386c7d1be84930ff", size = 25287097 },
+    { url = "https://files.pythonhosted.org/packages/c7/9d/0e6a147211de3d16d0b2ccbeb3d4e5fb572870a82c22d9ae16c3cbc1398f/pysam-0.23.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:1631c173363475c409352d9bf3ad96e7ff851ba903e5b979f55330f0b41d9b5d", size = 26039167 },
+]
+
+[[package]]
 name = "python-dotenv"
 version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -419,6 +435,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f6/31/b6d055f291a660a7bcaec4bcc9457b9fef8ecb6293e527b1eef1840aefd4/rich_toolkit-0.14.6.tar.gz", hash = "sha256:9dbd40e83414b84e828bf899115fff8877ce5951b73175f44db142902f07645d", size = 110805 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2e/3c/7a824c0514e87c61000583ac22c8321da6dc8e58a93d5f56e583482a2ee0/rich_toolkit-0.14.6-py3-none-any.whl", hash = "sha256:764f3a5f9e4b539ce805596863299e8982599514906dc5e3ccc2d390ef74c301", size = 24815 },
+]
+
+[[package]]
+name = "setuptools"
+version = "58.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/00/59/5a302942bd2e36194cc37a408989a87d6423e000859713dc3dd440c9dbae/setuptools-58.0.0.tar.gz", hash = "sha256:ee45f4d69c4bbd21a27b60a7f1f32cbdcd34755cb613e5c4edcb58145394a0a3", size = 2136807 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/5a/80fd2846d0151aa81a13540afc97be49f8fa19752933172b76854ba90adc/setuptools-58.0.0-py3-none-any.whl", hash = "sha256:fa14855ea8332dc12cae21b8e18cf55573eeaabad9fe3b8b787e6a74e01885d3", size = 816284 },
 ]
 
 [[package]]
@@ -524,6 +549,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/47/57/66f061ee118f413cd22a656de622925097170b9380b30091b78ea0c6ea75/uvloop-0.21.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:bd53ecc9a0f3d87ab847503c2e1552b690362e005ab54e8a48ba97da3924c0dc", size = 4454428 },
     { url = "https://files.pythonhosted.org/packages/63/9a/0962b05b308494e3202d3f794a6e85abe471fe3cafdbcf95c2e8c713aabd/uvloop-0.21.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:a5c39f217ab3c663dc699c04cbd50c13813e31d917642d459fdcec07555cc553", size = 4660018 },
 ]
+
+[[package]]
+name = "vcfpy"
+version = "0.13.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pysam" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e7/c1/314e8bac0b73b683ecbd23e565f3309173eef3e0f9b6d470ef60f5dfdfae/vcfpy-0.13.8.tar.gz", hash = "sha256:e7d00965105e7ca9567299f073ad60c6bbfc78d685d25ba33353988af9b33160", size = 993203 }
 
 [[package]]
 name = "watchfiles"
