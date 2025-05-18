@@ -20,7 +20,9 @@ const LOADING_SUBTITLES = [
 ];
 
 export default function Genome() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(
+    process.env.NODE_ENV !== "development"
+  );
   const [loadingSubtitle, setLoadingSubtitle] = useState(LOADING_SUBTITLES[0]);
   useEffect(() => {
     const interval = setInterval(() => {
