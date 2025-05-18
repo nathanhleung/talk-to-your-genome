@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 import diskcache  # Added for persistent caching
 
-cache = diskcache.Cache("pharmcat_cache2")  # Initialize cache
+cache = diskcache.Cache("pharmcat_cache3")  # Initialize cache
 
 load_dotenv()
 
