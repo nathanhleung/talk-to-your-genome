@@ -4,13 +4,12 @@ import subprocess
 import time
 
 # from functools import lru_cache # Replaced by diskcache
-from typing import Any, Dict, List
+from typing import Annotated, Any, Dict, List
 
 import diskcache  # Added for persistent caching
-import requests # Added for the new tool
-from starlette.responses import FileResponse
-import requests  # Added for the new tool
+import requests  # Added for the new tool  # Added for the new tool
 from dotenv import load_dotenv
+from starlette.responses import FileResponse
 
 cache = diskcache.Cache("pharmcat_cache3")  # Initialize cache
 
@@ -19,7 +18,7 @@ load_dotenv()
 import anthropic
 import uvicorn
 import vcfpy
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi import status as http_status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -305,7 +304,6 @@ def get_snp_info_from_clinicaltables_tool(rsid: str) -> Dict[str, Any]:
 # --- Pydantic Models ---
 class ChatRequest(BaseModel):
     messages: List[Dict[str, Any]]
-    token: str
 
 
 class ChatResponse(BaseModel):
@@ -358,8 +356,14 @@ def extract_text_with_citations_from_sdk_blocks(api_response_content_blocks: Lis
 
 # --- FastAPI Endpoints ---
 @app.post("/chat")
-async def search_snpedia(request: ChatRequest):  # Updated request model
-    if request.token != "texakloma":  # Consider making token configurable via env var
+async def search_snpedia(
+    request: ChatRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):  # Updated request model
+    token = authorization.removeprefix("Bearer ").strip() if authorization else None
+    if token != os.environ.get(
+        "AUTHORIZATION_SECRET"
+    ):  # Consider making token configurable via env var
         raise HTTPException(
             status_code=http_status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
         )
@@ -712,9 +716,7 @@ async def health_check():
 
 @app.get("/")
 async def main():
-    return FileResponse(
-        "ui.html"
-    )
+    return FileResponse("ui.html")
 
 
 if __name__ == "__main__":
