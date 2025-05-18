@@ -323,7 +323,7 @@ async def search_snpedia(request: ChatRequest):  # Updated request model
         # print(messages) # Can be very verbose
         start_time = time.time()
         response_message = client.beta.messages.create(
-            model=os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20240620"),  # Updated to a more recent model
+            model=os.environ.get("ANTHROPIC_MODEL", "claude-3-7-sonnet-20250219"),  # Updated to a more recent model
             max_tokens=2048,
             temperature=0.7,
             system=SYSTEM_PROMPT,
