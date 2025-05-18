@@ -110,10 +110,12 @@ export default function GenomeChat() {
                 onClick={() => {
                   if (message.locus) {
                     setLocus(message.locus);
-                    window.scrollTo({
-                      top: document.body.scrollHeight,
-                      behavior: "smooth",
-                    });
+                    setTimeout(() => {
+                      window.scrollTo({
+                        top: document.body.scrollHeight,
+                        behavior: "smooth",
+                      });
+                    }, 0);
                   }
                 }}
               >
