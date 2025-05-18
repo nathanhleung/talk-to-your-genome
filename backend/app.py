@@ -53,12 +53,6 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
             "diplotypes": {},
             "docker_command": "",
         }
-    if not os.path.exists(vcf_path):
-        return {
-            "error": f"VCF file not found at path: {vcf_path}",
-            "diplotypes": {},
-            "docker_command": "",
-        }
 
     workdir = os.path.dirname(vcf_path)
     base = os.path.basename(vcf_path)
@@ -110,6 +104,8 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
             header_line = ""
             for _ in range(5):
                 line = f.readline()
+                if not line:
+                    break
                 if not line:
                     break
                 if "Gene" in line and "Source Diplotype" in line:
@@ -737,5 +733,4 @@ if __name__ == "__main__":
     print(
         "To test the new tool, ask the assistant for information about a specific rsID, e.g., 'Tell me about rs4988235'."
     )
-    uvicorn.run(app, host="0.0.0.0", port=8000)
     uvicorn.run(app, host="0.0.0.0", port=8000)
