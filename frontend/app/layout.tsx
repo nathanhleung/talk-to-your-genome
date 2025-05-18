@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Manrope, Space_Grotesk } from "next/font/google";
+import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -34,6 +35,7 @@ export default function RootLayout({
         className={`${spaceGrotesk.variable} ${geistMono.variable} ${manrope.variable} antialiased`}
       >
         {children}
+        <Toaster />
       </body>
     </html>
   );
