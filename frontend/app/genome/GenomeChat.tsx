@@ -1,5 +1,6 @@
 import { locusAtom } from "@/app/genome/atoms";
 import { useSetAtom } from "jotai";
+import { omit } from "lodash";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
 
@@ -47,7 +48,7 @@ export default function GenomeChat() {
           },
           body: JSON.stringify({
             messages: [
-              ...messages,
+              ...messages.map((message) => omit(message, ["locus", "id"])),
               {
                 role: "user",
                 content: [{ type: "text", text: nextUserMessage }],
@@ -103,9 +104,9 @@ export default function GenomeChat() {
             await new Promise(requestAnimationFrame);
 
             if (json.type === "text") {
-              setNextGenomeMessage(json.snapshot);
-              lastSnapshot = json.snapshot;
-              // Allow React to flish the state update
+              setNextGenomeMessage(json.snapshot.trim());
+              lastSnapshot = json.snapshot.trim();
+              // Allow React to flush the state update
               await new Promise(requestAnimationFrame);
             }
 
@@ -116,17 +117,31 @@ export default function GenomeChat() {
               locus = `chr${json?.content_block?.input?.chromosome}:${json?.content_block?.input?.position}`;
             }
 
-            if (json.type === "message_stop") {
+            if (
+              json.type === "content_block_stop" &&
+              lastSnapshot.trim() !== ""
+            ) {
               setMessages((prevMessages) => {
                 const newMessage = {
                   id: `id-${prevMessages.length + 1}`,
-                  content: [{ type: "text", text: lastSnapshot }],
+                  content: [{ type: "text", text: lastSnapshot.trim() }],
                   role: "assistant",
                   locus: locus || `chr2:${Math.round(Math.random() * 10000)}`,
                 };
+                lastSnapshot = "";
                 return [...prevMessages, newMessage];
               });
               setNextGenomeMessage("");
+              if (locus) {
+                setLocus(locus);
+              }
+              await new Promise(requestAnimationFrame);
+              setTimeout(() => {
+                window.scrollTo({
+                  top: document.body.scrollHeight,
+                  behavior: "smooth",
+                });
+              }, 0);
             }
           } catch (err) {
             console.error(err);
@@ -210,6 +225,7 @@ export default function GenomeChat() {
           <input
             className="px-4 w-full focus:outline-none"
             placeholder="Talk to your genome..."
+            disabled={isSubmitting}
             value={nextUserMessage}
             onChange={(e) => setNextUserMessage(e.target.value)}
             autoFocus
