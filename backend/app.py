@@ -11,7 +11,7 @@ import requests  # Added for the new tool
 from dotenv import load_dotenv
 from starlette.responses import FileResponse
 
-cache = diskcache.Cache("pharmcat_cache3")  # Initialize cache
+cache = diskcache.Cache("pharmcat_cache4")  # Initialize cache
 
 load_dotenv()
 
@@ -49,11 +49,13 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
     """
 
     cached_results = {
-        "SLCO1B1": {'SLCO1B1': '*5/*15 OR *5/*46 OR *5/*47 OR *15/*40 OR *40/*46 OR *40/*47'},
-        "MCM6": {}
+        "SLCO1B1": {
+            "SLCO1B1": "*5/*15 OR *5/*46 OR *5/*47 OR *15/*40 OR *40/*46 OR *40/*47"
+        },
+        "MCM6": {},
     }
-    if ','.join(sorted(genes)) in cached_results:
-        return {'diplotypes': cached_results[','.join(sorted(genes))]}
+    if ",".join(sorted(genes)) in cached_results:
+        return {"diplotypes": cached_results[",".join(sorted(genes))]}
 
     vcf_path = os.environ.get("VCF_FILE_PATH")
     if not vcf_path:
@@ -372,6 +374,8 @@ async def search_snpedia(
     2. `pharmcat_diplotypes`: To run the PharmCAT Docker pipeline on the user's VCF data (implicitly available to the tool) and return a mapping of gene to star-allele diplotype for requested genes. Use this tool when the user's question pertains to pharmacogenomics, drug metabolism (e.g. for genes like CYP2C19), or requires diplotype information for specific genes mentioned or implied in the question. Only specify genes relevant to the user's question in the tool input. The VCF file is pre-configured on the server.
     3. `get_snp_base_pairs`: To retrieve detailed information (REF/ALT alleles, genotype) for a specific SNP from the user's VCF file, given its chromosome and position. Use this if you need to know the exact genetic variation at a specific locus from the VCF. The VCF file is pre-configured on the server.
     4. `get_snp_info_from_clinicaltables`: To retrieve SNP information (chromosome, position, observed alleles, gene) for a given rsID from the NIH Clinical Tables API. Use this if you need general information about an rsID like its genomic location or associated gene.
+    
+    For medication-related questions, such as rosuvastatin, use the pharmcat_diplotypes tool. For more general questions, use the other tools.
     """
     messages = [dict(msg) for msg in request.messages]
 
@@ -523,8 +527,8 @@ async def search_snpedia(
                         )
 
                         if tool_name == "pharmcat_diplotypes":
-                            print('\n==='*5)
-                            print('pharmcat diplotypes')
+                            print("\n===" * 5)
+                            print("pharmcat diplotypes")
                             print(tool_input)
                             genes_to_process = tool_input.get("genes")
                             if not isinstance(genes_to_process, list) or not all(
@@ -542,7 +546,7 @@ async def search_snpedia(
                                     genes=tuple(sorted(genes_to_process))
                                 )
                             print(f"{tool_output=}")
-                            print('\n===' * 5)
+                            print("\n===" * 5)
                             tool_output_content = json.dumps(tool_output)
 
                         elif tool_name == "get_snp_base_pairs":
