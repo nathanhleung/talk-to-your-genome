@@ -2,9 +2,11 @@ import json
 import os
 import subprocess
 import time
+from datetime import datetime, timezone, timedelta
 
 # from functools import lru_cache # Replaced by diskcache
 from typing import Annotated, Any, Dict, List
+from urllib.parse import urlencode
 
 import diskcache  # Added for persistent caching
 import requests  # Added for the new tool
@@ -312,6 +314,152 @@ class ChatResponse(BaseModel):
     messages: List[Dict[str, Any]]
 
 
+
+# --- Canvas Communication Tool (Updated Logic) ---
+def get_canvas_auth_token():
+    """Helper function to get a new Canvas API auth token using updated logic."""
+    client_id = os.getenv("CANVAS_API_CLIENT_ID")
+    client_secret = os.getenv("CANVAS_API_CLIENT_SECRET")
+    # Default FHIR_BASE_URL used if the environment variable is not set
+
+    fhir_base_url = os.getenv("FHIR_BASE_URL", "https://oop-team-12.canvasmedical.com")
+    token_url = f"{fhir_base_url.rstrip('/')}/auth/token/"
+
+    if not all([client_id, client_secret]):
+        return None, None, "Missing Canvas API credentials (CANVAS_API_CLIENT_ID or CANVAS_API_CLIENT_SECRET) in environment variables."
+
+    body = urlencode({
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+    })
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    try:
+        r = requests.post(token_url, headers=headers, data=body, timeout=10)
+        r.raise_for_status()  # Raise an exception for HTTP errors
+        js = r.json()
+        token = js["access_token"]
+        # Using js.get("expires_in", 0) as per user's latest snippet for consistency
+        expires = datetime.now(timezone.utc) + timedelta(seconds=js.get("expires_in", 0))
+
+        # Cache token and expiration in environment variables for the current process
+        os.environ["CANVAS_API_ACCESS_TOKEN"] = token
+        os.environ["CANVAS_ACCESS_TOKEN_EXPIRATION"] = expires.isoformat()
+        print(f"Successfully obtained new Canvas token, expires at: {expires.isoformat()}")
+        return token, expires, None
+    except requests.exceptions.HTTPError as http_err:
+        error_detail = f"HTTP error {http_err.response.status_code}"
+        if http_err.response.text:
+            error_detail += f" - {http_err.response.text}"
+        return None, None, f"Failed to get Canvas auth token: {error_detail}"
+    except requests.exceptions.RequestException as e:
+        return None, None, f"Network or request error during Canvas auth token retrieval: {str(e)}"
+    except ValueError as e:  # Includes JSONDecodeError
+        return None, None, f"Failed to parse Canvas auth token response: {str(e)}"
+
+
+def send_canvas_communication_tool(message_content: str) -> Dict[str, Any]:
+    """
+    Sends a communication message to Canvas EHR using updated logic.
+    Uses environment variables for API credentials, FHIR base URL, Patient ID, and Provider ID.
+    """
+    # Retrieve configuration from environment variables, with defaults
+    fhir_base_url = "https://fumage-oop-team-12.canvasmedical.com"
+    patient_id = os.getenv("CANVAS_PATIENT_ID", "f4baceb89508485d911d201b979012a3")
+    provider_id = os.getenv("CANVAS_PROVIDER_ID", "e9b2a4ac0fb24b48923e186587e187b0")
+
+    if not message_content or not isinstance(message_content, str):
+        return {"error": "Invalid message_content. It must be a non-empty string."}
+    if not all([fhir_base_url, patient_id, provider_id]):  # Should always have defaults, but good check
+        return {
+            "error": "Missing critical Canvas configuration (FHIR_BASE_URL, CANVAS_PATIENT_ID, or CANVAS_PROVIDER_ID)."}
+
+    # 1) Get or refresh token
+    token = os.getenv("CANVAS_API_ACCESS_TOKEN")
+    exp_str = os.getenv("CANVAS_ACCESS_TOKEN_EXPIRATION")
+    expires_at = datetime.fromisoformat(exp_str) if exp_str else datetime.min.replace(tzinfo=timezone.utc)
+
+    if not token or expires_at <= datetime.now(timezone.utc):
+        print("Canvas token expired or not found, attempting to fetch new token...")
+        token, new_expires_at, error_msg = get_canvas_auth_token()
+        if error_msg:
+            print(f"{error_msg=}")
+            return {"error": error_msg}
+        if not token:  # Should be caught by error_msg, but as a safeguard
+
+            result = {"error": "Failed to retrieve a valid Canvas auth token after attempting refresh."}
+            print(f"{result=}")
+            return result
+        expires_at = new_expires_at  # Update expires_at with the new expiration time
+    else:
+        print(f"Using cached Canvas token, expires at: {expires_at.isoformat()}")
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/fhir+json",
+        "Content-Type": "application/fhir+json",
+    }
+
+    # 2) Build and send Communication
+    comm_url = f"{fhir_base_url.rstrip('/')}/Communication"
+    payload = {
+        "resourceType": "Communication",
+        "status": "completed",
+        "sent": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "sender": {"reference": f"Patient/{patient_id}"},
+        "recipient": [{"reference": f"Practitioner/{provider_id}"}],
+        "payload": [{"contentString": message_content}]  # Use the parameterized message_content
+    }
+
+    try:
+        print(f"Sending Communication to Canvas: {comm_url} with payload: {json.dumps(payload)}")
+        resp = requests.post(comm_url, json=payload, headers=headers, timeout=15)
+
+        # Use `if not resp.ok:` as per user's updated logic
+        if not resp.ok:
+            error_message = f"Failed to send Communication to Canvas: HTTP {resp.status_code}"
+            try:
+                error_detail = resp.json()  # Try to get JSON error detail
+                error_message += f" - Detail: {error_detail}"
+            except ValueError:  # If response is not JSON
+                error_message += f" - Response: {resp.text}"
+            print(error_message)
+            return {"error": error_message, "status_code": resp.status_code, "response_text": resp.text}
+
+        # 3) Handle success (including empty-body success)
+        status_code = resp.status_code
+        response_data = {"status": "success", "http_status_code": status_code}
+
+        print(f"✅ Communication request successful (HTTP {status_code})")
+
+        if resp.content:
+            try:
+                json_response = resp.json()
+                response_data["response_body"] = json_response
+                print(f"Canvas Response JSON: {json_response}")
+            except ValueError:  # If response is not JSON but has content
+                response_data["response_text"] = resp.text
+                print(f"Canvas Response Text: {resp.text}")
+        else:  # No content in response body
+            location = resp.headers.get("Location") or resp.headers.get("location")
+            if location:
+                response_data["location_header"] = location
+                print(f"New resource URL from Location header: {location}")
+            else:
+                response_data["message"] = "Communication sent, no response body or Location header."
+                print("No response body or Location header returned, but request was successful.")
+
+        return response_data
+
+    except requests.exceptions.Timeout:
+        print("❌ Timeout error sending Communication to Canvas.")
+        return {"error": "Timeout occurred while sending Communication to Canvas."}
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Network or request error sending Communication to Canvas: {str(e)}")
+        return {"error": f"Network or request error sending Communication to Canvas: {str(e)}"}
+
+
+
 # --- User's original citation extraction function ---
 def extract_text_with_citations_from_sdk_blocks(api_response_content_blocks: List[Any]):
     user_texts = []
@@ -444,6 +592,20 @@ async def search_snpedia(
                 "required": ["rsid"],
             },
         },
+        {
+            "name": "send_canvas_communication",
+            "description": "Sends a communication message/note to the Canvas EHR platform. The message is sent from a pre-configured patient to a pre-configured provider.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "message_content": {
+                        "type": "string",
+                        "description": "The content of the message to be sent to Canvas EHR.",
+                    }
+                },
+                "required": ["message_content"],
+            },
+        },
     ]
 
     MAX_TOOL_ITERATIONS = 5
@@ -459,6 +621,8 @@ async def search_snpedia(
             start_time = time.time()
             collected_content = []
             response_message = None
+
+            print(f"{messages[-1]=}")
 
             with client.beta.messages.stream(
                 model=os.environ.get("ANTHROPIC_MODEL", "claude-3-7-sonnet-20250219"),
@@ -597,6 +761,15 @@ async def search_snpedia(
                                 )
                             print(f"ClinicalTables SNP info output: {tool_output}")
                             tool_output_content = json.dumps(tool_output)
+
+                        elif tool_name == "send_canvas_communication":
+                            msg_content = tool_input.get("message_content")
+                            if isinstance(msg_content, str) and msg_content:
+                                tool_output = send_canvas_communication_tool(message_content=msg_content)
+                            else:
+                                tool_output = {"error": "Invalid 'message_content'. Expected a non-empty string."}
+                            tool_output_content = json.dumps(tool_output)
+
 
                         else:  # web_search or unhandled tool
                             print(
