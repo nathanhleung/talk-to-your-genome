@@ -264,6 +264,7 @@ async def search_snpedia(request: ChatRequest):  # Updated request model
     You should also provide sources where the user can get more information if needed. Omit any information not relevant to the specific user question.
     Use simple language with direct answers.
     Responses should be a maximum of one paragraph unless more detail is clearly requested or necessary.
+    Try your best to not ask follow up questions, if not absolutely necessary.
 
     You have access to the following tools:
     1. `web_search`: To search SNPedia.com for information about SNPs. Use this to answer questions about specific SNPs if detailed information from SNPedia is required.
