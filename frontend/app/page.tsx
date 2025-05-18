@@ -100,7 +100,9 @@ export default function Home() {
                     onClick={uploadGenome}
                     className="flex-1 h-8 rounded-lg bg-white/5 flex items-center px-4 cursor-text"
                   >
-                    <p className="text-sm text-white/60">Ask your genome...</p>
+                    <p className="text-sm text-white/60">
+                      Upload genome to talk...
+                    </p>
                   </div>
                   <div
                     onClick={uploadGenome}

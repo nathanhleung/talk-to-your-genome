@@ -8,4 +8,6 @@ dependencies = [
     "anthropic>=0.51.0",
     "fastapi[standard]>=0.115.12",
     "python-dotenv>=1.1.0",
+    "setuptools==58",
+    "vcfpy>=0.13.8",
 ]
