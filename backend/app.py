@@ -56,6 +56,7 @@ def pharmcat_diplotypes(genes: List[str]) -> Dict:
         "SLCO1B1": {'SLCO1B1': '*5/*15 OR *5/*46 OR *5/*47 OR *15/*40 OR *40/*46 OR *40/*47'},
         "MCM6": {},
         "CYP3A4,CYP3A5'": {'CYP3A4': '*1/*22 OR *1/*37', 'CYP3A5': '*3/*3'}
+        "CYP2D6": {}
     }
     key = ','.join(sorted(genes))
     if key in cached_results:
