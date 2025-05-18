@@ -321,6 +321,7 @@ def get_canvas_auth_token():
     client_id = os.getenv("CANVAS_API_CLIENT_ID")
     client_secret = os.getenv("CANVAS_API_CLIENT_SECRET")
     # Default FHIR_BASE_URL used if the environment variable is not set
+
     fhir_base_url = os.getenv("FHIR_BASE_URL", "https://oop-team-12.canvasmedical.com")
     token_url = f"{fhir_base_url.rstrip('/')}/auth/token/"
 
@@ -363,7 +364,7 @@ def send_canvas_communication_tool(message_content: str) -> Dict[str, Any]:
     Uses environment variables for API credentials, FHIR base URL, Patient ID, and Provider ID.
     """
     # Retrieve configuration from environment variables, with defaults
-    fhir_base_url = os.getenv("FHIR_BASE_URL", "https://oop-team-12.canvasmedical.com")
+    fhir_base_url = "https://fumage-oop-team-12.canvasmedical.com"
     patient_id = os.getenv("CANVAS_PATIENT_ID", "f4baceb89508485d911d201b979012a3")
     provider_id = os.getenv("CANVAS_PROVIDER_ID", "e9b2a4ac0fb24b48923e186587e187b0")
 
@@ -382,9 +383,13 @@ def send_canvas_communication_tool(message_content: str) -> Dict[str, Any]:
         print("Canvas token expired or not found, attempting to fetch new token...")
         token, new_expires_at, error_msg = get_canvas_auth_token()
         if error_msg:
+            print(f"{error_msg=}")
             return {"error": error_msg}
         if not token:  # Should be caught by error_msg, but as a safeguard
-            return {"error": "Failed to retrieve a valid Canvas auth token after attempting refresh."}
+
+            result = {"error": "Failed to retrieve a valid Canvas auth token after attempting refresh."}
+            print(f"{result=}")
+            return result
         expires_at = new_expires_at  # Update expires_at with the new expiration time
     else:
         print(f"Using cached Canvas token, expires at: {expires_at.isoformat()}")
@@ -617,6 +622,8 @@ async def search_snpedia(
             collected_content = []
             response_message = None
 
+            print(f"{messages[-1]=}")
+
             with client.beta.messages.stream(
                 model=os.environ.get("ANTHROPIC_MODEL", "claude-3-7-sonnet-20250219"),
                 max_tokens=2048,
@@ -761,6 +768,7 @@ async def search_snpedia(
                                 tool_output = send_canvas_communication_tool(message_content=msg_content)
                             else:
                                 tool_output = {"error": "Invalid 'message_content'. Expected a non-empty string."}
+                            tool_output_content = json.dumps(tool_output)
 
 
                         else:  # web_search or unhandled tool
