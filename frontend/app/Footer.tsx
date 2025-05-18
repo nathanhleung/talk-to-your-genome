@@ -39,6 +39,15 @@ export default function Footer() {
           >
             IGV
           </a>
+          ,{" "}
+          <a
+            href="https://snpedia.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-cyan-400 hover:underline"
+          >
+            SNPedia
+          </a>
           , and{" "}
           <a
             href="https://pharmcat.org/"
